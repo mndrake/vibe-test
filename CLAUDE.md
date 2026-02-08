@@ -17,6 +17,8 @@ This is a Wheel of Fortune browser game — a static web app with no build tools
 - Game state is managed via module-level `let` variables (not classes or a state object).
 - CPU AI difficulty is controlled by probability constants and revealed-letter ratios, not difficulty settings.
 - The `MINIMUM_ROUND_WIN` constant (currently $1000) guarantees a minimum payout for solving a puzzle.
+- The wheel is built dynamically via `buildWheelSegments(numBankrupts)` to support configurable bankrupt spaces and the Steal space.
+- Special wheel segments (Bankrupt, Lose a Turn, Free Play, Steal) are distributed evenly around dollar-value segments.
 
 ## Adding Puzzles
 
@@ -37,3 +39,6 @@ No automated tests. To verify changes, open `index.html` in a browser and play t
 - Round earnings accumulate and transfer to total winnings on solve.
 - CPU players take turns automatically without freezing.
 - All three screens (setup, game, end) transition correctly.
+- Steal space correctly takes half from the richest opponent (or $300 if no one has money).
+- Bankrupt spaces setting changes the wheel layout correctly (0-4 bankrupts).
+- Rules modal opens from both setup and game screens and closes properly.

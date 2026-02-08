@@ -73,34 +73,66 @@ const PUZZLES = [
 ];
 
 /* ═══════════════════════════════════════════════════════
-   WHEEL SEGMENTS
+   WHEEL SEGMENTS (built dynamically via buildWheelSegments)
    ═══════════════════════════════════════════════════════ */
-const WHEEL_SEGMENTS = [
+let WHEEL_SEGMENTS = [];
+
+// Dollar segments pool — these fill the wheel around the special spaces
+const DOLLAR_SEGMENTS = [
   { label: "$500",  value: 500,  color: "#e74c3c" },
   { label: "$600",  value: 600,  color: "#2ecc71" },
   { label: "$700",  value: 700,  color: "#3498db" },
   { label: "$300",  value: 300,  color: "#f39c12" },
   { label: "$800",  value: 800,  color: "#9b59b6" },
-  { label: "BANKRUPT", value: "bankrupt", color: "#1a1a2e" },
   { label: "$550",  value: 550,  color: "#1abc9c" },
   { label: "$400",  value: 400,  color: "#e67e22" },
   { label: "$900",  value: 900,  color: "#2c3e50" },
   { label: "$350",  value: 350,  color: "#d35400" },
-  { label: "LOSE\nTURN", value: "lose_turn", color: "#ecf0f1", textColor: "#333" },
   { label: "$450",  value: 450,  color: "#c0392b" },
   { label: "$750",  value: 750,  color: "#16a085" },
-  { label: "FREE\nPLAY", value: "free_play", color: "#27ae60" },
   { label: "$250",  value: 250,  color: "#8e44ad" },
   { label: "$600",  value: 600,  color: "#2980b9" },
   { label: "$100",  value: 100,  color: "#f1c40f", textColor: "#333" },
   { label: "$300",  value: 300,  color: "#e74c3c" },
   { label: "$500",  value: 500,  color: "#3498db" },
-  { label: "BANKRUPT", value: "bankrupt", color: "#1a1a2e" },
   { label: "$650",  value: 650,  color: "#e67e22" },
   { label: "$200",  value: 200,  color: "#9b59b6" },
   { label: "$850",  value: 850,  color: "#2ecc71" },
   { label: "$150",  value: 150,  color: "#d35400" },
 ];
+
+const BANKRUPT_SEGMENT = { label: "BANKRUPT", value: "bankrupt", color: "#1a1a2e" };
+const LOSE_TURN_SEGMENT = { label: "LOSE\nTURN", value: "lose_turn", color: "#ecf0f1", textColor: "#333" };
+const FREE_PLAY_SEGMENT = { label: "FREE\nPLAY", value: "free_play", color: "#27ae60" };
+const STEAL_SEGMENT = { label: "STEAL", value: "steal", color: "#ff1493" };
+
+function buildWheelSegments(numBankrupts) {
+  // Fixed special segments: lose_turn, free_play, steal
+  // Variable: 0-4 bankrupt segments
+  // Rest filled with dollar segments to reach 24 total
+  const totalSlots = 24;
+  const fixedSpecials = 3; // lose_turn + free_play + steal
+  const dollarCount = totalSlots - fixedSpecials - numBankrupts;
+
+  const dollars = DOLLAR_SEGMENTS.slice(0, dollarCount);
+  const segments = [...dollars];
+
+  // Insert special segments at evenly spaced positions
+  const specials = [];
+  for (let i = 0; i < numBankrupts; i++) specials.push({ ...BANKRUPT_SEGMENT });
+  specials.push({ ...LOSE_TURN_SEGMENT });
+  specials.push({ ...FREE_PLAY_SEGMENT });
+  specials.push({ ...STEAL_SEGMENT });
+
+  // Distribute specials evenly around the wheel
+  const spacing = Math.floor(totalSlots / specials.length);
+  for (let i = specials.length - 1; i >= 0; i--) {
+    const pos = Math.min(i * spacing, segments.length);
+    segments.splice(pos, 0, specials[i]);
+  }
+
+  WHEEL_SEGMENTS = segments;
+}
 
 const VOWELS = new Set(['A','E','I','O','U']);
 const CONSONANTS = 'BCDFGHJKLMNPQRSTVWXYZ'.split('');
@@ -122,6 +154,7 @@ let currentWheelValue = null;
 let inputMode = null; // null | 'consonant' | 'vowel' | 'solve' | 'free_consonant'
 let usedPuzzleIndices = new Set();
 let cpuThinking = false;
+let numBankrupts = 2;
 
 /* ═══════════════════════════════════════════════════════
    DOM
@@ -176,6 +209,8 @@ $('play-again-btn').addEventListener('click', () => {
 function startGame() {
   const numHumans = parseInt(numHumansSelect.value);
   totalRounds = parseInt(numRoundsSelect.value);
+  numBankrupts = parseInt($('num-bankrupts').value);
+  buildWheelSegments(numBankrupts);
   players = [];
 
   for (let i = 0; i < 3; i++) {
@@ -580,6 +615,8 @@ function onWheelStopped() {
   } else if (segment.value === 'lose_turn') {
     setMessage(`${cp.name} hit LOSE A TURN!`);
     setTimeout(() => nextPlayer(), 1800);
+  } else if (segment.value === 'steal') {
+    handleSteal(cp);
   } else if (segment.value === 'free_play') {
     setMessage(`${cp.name} landed on FREE PLAY! Pick any letter — no penalty if it's not there.`);
     if (cp.cpu) {
@@ -595,6 +632,51 @@ function onWheelStopped() {
       setControlState('pick_consonant');
     }
   }
+}
+
+/* ═══════════════════════════════════════════════════════
+   STEAL LOGIC
+   ═══════════════════════════════════════════════════════ */
+function handleSteal(cp) {
+  // Find the opponent with the most round money to steal from
+  const others = players.filter((_, i) => i !== currentPlayerIdx);
+  const othersSorted = [...others].sort((a, b) => b.roundMoney - a.roundMoney);
+
+  // If current player has the most money, steal from 2nd highest (which is the
+  // richest opponent). If someone else is richer, steal from them.
+  const allSorted = [...players].sort((a, b) => b.roundMoney - a.roundMoney);
+  let victim;
+  if (allSorted[0] === cp) {
+    // Current player is richest — steal from the richest opponent
+    victim = othersSorted[0];
+  } else {
+    // Someone else is richest — steal from them
+    victim = allSorted[0];
+  }
+
+  if (!victim || victim.roundMoney <= 0) {
+    // No one else has money — get $300
+    cp.roundMoney += 300;
+    setMessage(`${cp.name} landed on STEAL! No opponents have money — gets $300!`);
+    renderScoreboard();
+    setTimeout(() => {
+      setMessage(`${cp.name}'s turn continues. Spin, buy a vowel, or solve!`);
+      setControlState('spin');
+      if (cp.cpu) scheduleCpuTurn();
+    }, 1800);
+    return;
+  }
+
+  const stolen = Math.floor(victim.roundMoney / 2);
+  victim.roundMoney -= stolen;
+  cp.roundMoney += stolen;
+  setMessage(`${cp.name} landed on STEAL! Took $${stolen.toLocaleString()} from ${victim.name}!`);
+  renderScoreboard();
+  setTimeout(() => {
+    setMessage(`${cp.name}'s turn continues. Spin, buy a vowel, or solve!`);
+    setControlState('spin');
+    if (cp.cpu) scheduleCpuTurn();
+  }, 1800);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -921,6 +1003,18 @@ function generateWrongGuess() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   RULES MODAL
+   ═══════════════════════════════════════════════════════ */
+const rulesModal = $('rules-modal');
+$('rules-btn-setup').addEventListener('click', () => rulesModal.classList.add('visible'));
+$('rules-btn-game').addEventListener('click', () => rulesModal.classList.add('visible'));
+$('rules-close').addEventListener('click', () => rulesModal.classList.remove('visible'));
+rulesModal.addEventListener('click', (e) => {
+  if (e.target === rulesModal) rulesModal.classList.remove('visible');
+});
+
+/* ═══════════════════════════════════════════════════════
    INIT
    ═══════════════════════════════════════════════════════ */
+buildWheelSegments(2);
 drawWheel(0);

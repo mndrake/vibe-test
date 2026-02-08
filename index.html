@@ -42,7 +42,17 @@
       <option value="6">6</option>
     </select>
 
+    <label for="num-bankrupts">Bankrupt Spaces on Wheel</label>
+    <select id="num-bankrupts">
+      <option value="0">0 (no bankrupts)</option>
+      <option value="1">1</option>
+      <option value="2" selected>2 (default)</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+    </select>
+
     <button class="btn btn-gold" id="start-btn">Start Game</button>
+    <button class="btn btn-small" id="rules-btn-setup" style="background:#3498db;color:#fff;width:100%;margin-top:.5rem;">How to Play</button>
   </div>
 </div>
 
@@ -69,6 +79,7 @@
       <button class="btn btn-gold" id="btn-spin">Spin</button>
       <button class="btn btn-green btn-small" id="btn-vowel" disabled>Buy a Vowel ($250)</button>
       <button class="btn btn-small" id="btn-solve" style="background:#8e44ad;color:#fff;">Solve Puzzle</button>
+      <button class="btn btn-small" id="rules-btn-game" style="background:#3498db;color:#fff;">Rules</button>
     </div>
   </div>
 
@@ -89,6 +100,39 @@
   <div class="winner" id="winner-text"></div>
   <div class="final-scores" id="final-scores"></div>
   <button class="btn btn-gold" id="play-again-btn">Play Again</button>
+</div>
+
+<!-- ════════════════ RULES MODAL ════════════════ -->
+<div id="rules-modal" class="modal-overlay">
+  <div class="modal-content">
+    <h2>How to Play</h2>
+    <div class="rules-text">
+      <h3>Objective</h3>
+      <p>Solve hidden word puzzles to earn money. The player with the most total winnings after all rounds wins the game.</p>
+
+      <h3>On Your Turn</h3>
+      <ul>
+        <li><strong>Spin the Wheel</strong> — Land on a dollar amount, then guess a consonant. If the letter is in the puzzle, you earn that dollar amount for each occurrence and your turn continues.</li>
+        <li><strong>Buy a Vowel ($250)</strong> — Spend $250 from your round earnings to guess a vowel (A, E, I, O, U). If correct, your turn continues.</li>
+        <li><strong>Solve the Puzzle</strong> — At any point during your turn, try to guess the full phrase. Get it right and you win the round!</li>
+      </ul>
+
+      <h3>Special Wheel Spaces</h3>
+      <ul>
+        <li><strong>Bankrupt</strong> — You lose all money earned this round and your turn ends.</li>
+        <li><strong>Lose a Turn</strong> — Your turn ends but you keep your money.</li>
+        <li><strong>Free Play</strong> — Guess any consonant with no penalty if it's wrong.</li>
+        <li><strong>Steal</strong> — Take half the round money from the richest opponent. If you're the richest, you take from the second richest. If no one else has money, you get $300.</li>
+      </ul>
+
+      <h3>Winning a Round</h3>
+      <p>The player who solves the puzzle wins their accumulated round earnings (minimum $1,000). That amount is added to their total winnings. All players' round money resets for the next round.</p>
+
+      <h3>CPU Players</h3>
+      <p>Any unfilled player slots are controlled by the computer. CPU players make decisions automatically with a mix of strategy and randomness.</p>
+    </div>
+    <button class="btn btn-gold" id="rules-close">Got It!</button>
+  </div>
 </div>
 
 <script src="game.js"></script>
