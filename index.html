@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wheel of Fortune</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue-dark: #0a1628;
+    --blue-mid: #142744;
+    --blue-light: #1e3a5f;
+    --gold: #d4a520;
+    --gold-light: #f0d060;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --white: #f0f0f0;
+    --tile-bg: #1a6b3c;
+    --tile-revealed: #fcfcfc;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, var(--blue-dark), var(--blue-mid));
+    color: var(--white);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Setup Screen ── */
+  #setup-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  #setup-screen h1 {
+    font-size: 3rem;
+    color: var(--gold);
+    text-shadow: 2px 2px 6px rgba(0,0,0,.5);
+    margin-bottom: .5rem;
+    text-align: center;
+  }
+
+  #setup-screen h1 span { display: block; font-size: 1.2rem; color: var(--gold-light); }
+
+  .setup-box {
+    background: var(--blue-light);
+    border: 2px solid var(--gold);
+    border-radius: 12px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 480px;
+    margin-top: 1.5rem;
+  }
+
+  .setup-box label { display: block; margin-bottom: .4rem; font-weight: 600; }
+  .setup-box select, .setup-box input {
+    width: 100%;
+    padding: .6rem;
+    border-radius: 6px;
+    border: 1px solid #555;
+    background: #1a1a2e;
+    color: var(--white);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .player-name-field { display: none; }
+  .player-name-field.visible { display: block; }
+
+  .btn {
+    display: inline-block;
+    padding: .75rem 2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.4); }
+  .btn:active { transform: translateY(0); }
+
+  .btn-gold { background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: #1a1a2e; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-red { background: var(--red); color: #fff; }
+  .btn-small { padding: .5rem 1.2rem; font-size: .9rem; }
+
+  #start-btn { margin-top: .5rem; width: 100%; }
+
+  /* ── Game Screen ── */
+  #game-screen { display: none; padding: 1rem 1.5rem 2rem; max-width: 1100px; margin: 0 auto; }
+
+  /* Scoreboard */
+  .scoreboard {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+
+  .player-card {
+    background: var(--blue-light);
+    border: 2px solid #444;
+    border-radius: 10px;
+    padding: .75rem 1.25rem;
+    min-width: 180px;
+    text-align: center;
+    transition: border-color .3s, box-shadow .3s;
+  }
+  .player-card.active {
+    border-color: var(--gold);
+    box-shadow: 0 0 16px rgba(212,165,32,.45);
+  }
+
+  .player-card .name { font-weight: 700; font-size: 1.05rem; }
+  .player-card .name .cpu-badge {
+    font-size: .7rem;
+    background: #e67e22;
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: .4rem;
+    vertical-align: middle;
+  }
+  .player-card .round-money { font-size: 1.4rem; color: var(--gold-light); font-weight: 700; }
+  .player-card .total-label { font-size: .75rem; color: #aaa; }
+  .player-card .total-money { font-size: .95rem; color: #ccc; }
+
+  /* Category */
+  .category-bar {
+    text-align: center;
+    margin-bottom: .75rem;
+    font-size: 1.1rem;
+    color: var(--gold-light);
+    letter-spacing: 1px;
+  }
+  .category-bar strong { color: var(--gold); }
+
+  /* Puzzle Board */
+  .puzzle-board {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    background: #0d3320;
+    border: 4px solid var(--gold);
+    border-radius: 12px;
+    padding: 1.25rem 1rem;
+    margin-bottom: 1rem;
+    min-height: 140px;
+  }
+
+  .puzzle-row {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .tile {
+    width: 38px;
+    height: 46px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    font-weight: 700;
+    transition: background .4s, color .4s, transform .3s;
+  }
+  .tile.letter {
+    background: var(--tile-bg);
+    color: transparent;
+    border: 2px solid #2a8a52;
+  }
+  .tile.letter.revealed {
+    background: var(--tile-revealed);
+    color: #1a1a2e;
+    transform: rotateX(360deg);
+  }
+  .tile.space { background: transparent; width: 20px; }
+  .tile.punct {
+    background: var(--tile-revealed);
+    color: #1a1a2e;
+    border: 2px solid #2a8a52;
+  }
+
+  /* Used Letters */
+  .used-letters {
+    text-align: center;
+    margin-bottom: .75rem;
+    font-size: .85rem;
+    color: #aaa;
+    min-height: 1.4em;
+  }
+
+  /* Wheel + Controls */
+  .wheel-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .wheel-container {
+    position: relative;
+    width: 300px;
+    height: 300px;
+  }
+
+  #wheel-canvas {
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    box-shadow: 0 0 20px rgba(0,0,0,.6), inset 0 0 10px rgba(0,0,0,.3);
+  }
+
+  .wheel-pointer {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-top: 28px solid var(--red);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.5));
+    z-index: 2;
+  }
+
+  .controls {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* Letter Keyboard */
+  .letter-keyboard {
+    display: none;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+    max-width: 600px;
+    margin: 0 auto 1rem;
+  }
+  .letter-keyboard.visible { display: flex; }
+
+  .key-btn {
+    width: 40px;
+    height: 40px;
+    border: 2px solid var(--gold);
+    border-radius: 6px;
+    background: var(--blue-light);
+    color: var(--white);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s, opacity .2s;
+  }
+  .key-btn:hover:not(:disabled) { background: var(--gold); color: #1a1a2e; }
+  .key-btn:disabled { opacity: .25; cursor: default; border-color: #555; }
+  .key-btn.vowel { border-color: var(--green); }
+
+  /* Solve Input */
+  .solve-area {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: .5rem;
+    margin: 0 auto 1rem;
+    max-width: 500px;
+  }
+  .solve-area.visible { display: flex; }
+  .solve-area input {
+    width: 100%;
+    padding: .6rem;
+    border-radius: 6px;
+    border: 2px solid var(--gold);
+    background: #1a1a2e;
+    color: var(--white);
+    font-size: 1.1rem;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  /* Message Log */
+  .message-log {
+    text-align: center;
+    min-height: 2rem;
+    font-size: 1rem;
+    color: var(--gold-light);
+    margin-bottom: .5rem;
+    line-height: 1.4;
+  }
+
+  /* Round banner */
+  .round-banner {
+    text-align: center;
+    font-size: .9rem;
+    margin-bottom: .5rem;
+    color: #bbb;
+  }
+
+  /* End Screen */
+  #end-screen {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+    text-align: center;
+  }
+  #end-screen h2 { font-size: 2.5rem; color: var(--gold); margin-bottom: 1rem; }
+  #end-screen .final-scores { margin-bottom: 2rem; }
+  #end-screen .final-scores div { font-size: 1.3rem; margin: .4rem 0; }
+  #end-screen .winner { font-size: 1.8rem; color: var(--green); margin-bottom: 1.5rem; }
+
+  @media (max-width: 600px) {
+    .tile { width: 28px; height: 36px; font-size: 1rem; }
+    .wheel-container { width: 220px; height: 220px; }
+    #wheel-canvas { width: 220px; height: 220px; }
+    .player-card { min-width: 140px; padding: .5rem .75rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════ SETUP SCREEN ════════════════ -->
+<div id="setup-screen">
+  <h1>Wheel of Fortune <span>The Web Game</span></h1>
+  <div class="setup-box">
+    <label for="num-humans">Number of Human Players</label>
+    <select id="num-humans">
+      <option value="1">1 (+ 2 CPU opponents)</option>
+      <option value="2">2 (+ 1 CPU opponent)</option>
+      <option value="3">3 (no CPU)</option>
+    </select>
+
+    <div id="player-names">
+      <div class="player-name-field visible" data-idx="0">
+        <label for="pname-0">Player 1 Name</label>
+        <input id="pname-0" type="text" maxlength="14" placeholder="Player 1">
+      </div>
+      <div class="player-name-field" data-idx="1">
+        <label for="pname-1">Player 2 Name</label>
+        <input id="pname-1" type="text" maxlength="14" placeholder="Player 2">
+      </div>
+      <div class="player-name-field" data-idx="2">
+        <label for="pname-2">Player 3 Name</label>
+        <input id="pname-2" type="text" maxlength="14" placeholder="Player 3">
+      </div>
+    </div>
+
+    <label for="num-rounds">Number of Rounds</label>
+    <select id="num-rounds">
+      <option value="3">3</option>
+      <option value="4" selected>4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+    </select>
+
+    <button class="btn btn-gold" id="start-btn">Start Game</button>
+  </div>
+</div>
+
+<!-- ════════════════ GAME SCREEN ════════════════ -->
+<div id="game-screen">
+  <div class="round-banner" id="round-banner">Round 1 of 4</div>
+
+  <div class="scoreboard" id="scoreboard"></div>
+
+  <div class="category-bar">Category: <strong id="category-label">???</strong></div>
+
+  <div class="puzzle-board" id="puzzle-board"></div>
+
+  <div class="used-letters" id="used-letters"></div>
+
+  <div class="message-log" id="message-log">Spin the wheel to begin!</div>
+
+  <div class="wheel-area">
+    <div class="wheel-container">
+      <div class="wheel-pointer"></div>
+      <canvas id="wheel-canvas" width="600" height="600"></canvas>
+    </div>
+    <div class="controls" id="controls">
+      <button class="btn btn-gold" id="btn-spin">Spin</button>
+      <button class="btn btn-green btn-small" id="btn-vowel" disabled>Buy a Vowel ($250)</button>
+      <button class="btn btn-small" id="btn-solve" style="background:#8e44ad;color:#fff;">Solve Puzzle</button>
+    </div>
+  </div>
+
+  <div class="letter-keyboard" id="keyboard"></div>
+
+  <div class="solve-area" id="solve-area">
+    <input type="text" id="solve-input" placeholder="Type your answer..." autocomplete="off">
+    <div style="display:flex;gap:.5rem;">
+      <button class="btn btn-green btn-small" id="solve-submit">Submit</button>
+      <button class="btn btn-red btn-small" id="solve-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ END SCREEN ════════════════ -->
+<div id="end-screen">
+  <h2>Game Over!</h2>
+  <div class="winner" id="winner-text"></div>
+  <div class="final-scores" id="final-scores"></div>
+  <button class="btn btn-gold" id="play-again-btn">Play Again</button>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   PUZZLE DATABASE
+   ═══════════════════════════════════════════════════════ */
+const PUZZLES = [
+  { category: "Around the House", phrase: "WELCOME MAT" },
+  { category: "Around the House", phrase: "KITCHEN SINK" },
+  { category: "Around the House", phrase: "GRANDFATHER CLOCK" },
+  { category: "Around the House", phrase: "SWIMMING POOL" },
+  { category: "Before & After", phrase: "BANANA SPLIT DECISION" },
+  { category: "Before & After", phrase: "BLACK MAGIC MARKER" },
+  { category: "Before & After", phrase: "HIGH SCHOOL BUS" },
+  { category: "Before & After", phrase: "FRENCH TOAST OF THE TOWN" },
+  { category: "Event", phrase: "SURPRISE BIRTHDAY PARTY" },
+  { category: "Event", phrase: "FAMILY REUNION" },
+  { category: "Event", phrase: "FOURTH OF JULY" },
+  { category: "Event", phrase: "WEDDING RECEPTION" },
+  { category: "Food & Drink", phrase: "PEPPERONI PIZZA" },
+  { category: "Food & Drink", phrase: "STRAWBERRY MILKSHAKE" },
+  { category: "Food & Drink", phrase: "BLUEBERRY PANCAKES" },
+  { category: "Food & Drink", phrase: "GRILLED CHEESE SANDWICH" },
+  { category: "Fun & Games", phrase: "ROLLER COASTER RIDE" },
+  { category: "Fun & Games", phrase: "HIDE AND SEEK" },
+  { category: "Fun & Games", phrase: "SCAVENGER HUNT" },
+  { category: "Fun & Games", phrase: "BOARD GAME NIGHT" },
+  { category: "Landmark", phrase: "GOLDEN GATE BRIDGE" },
+  { category: "Landmark", phrase: "STATUE OF LIBERTY" },
+  { category: "Landmark", phrase: "GRAND CANYON" },
+  { category: "Landmark", phrase: "MOUNT RUSHMORE" },
+  { category: "Living Thing", phrase: "BOTTLENOSE DOLPHIN" },
+  { category: "Living Thing", phrase: "MONARCH BUTTERFLY" },
+  { category: "Living Thing", phrase: "GIANT SEQUOIA TREE" },
+  { category: "Living Thing", phrase: "GOLDEN RETRIEVER" },
+  { category: "Movie Title", phrase: "THE WIZARD OF OZ" },
+  { category: "Movie Title", phrase: "BACK TO THE FUTURE" },
+  { category: "Movie Title", phrase: "JURASSIC PARK" },
+  { category: "Movie Title", phrase: "FINDING NEMO" },
+  { category: "Occupation", phrase: "AIRLINE PILOT" },
+  { category: "Occupation", phrase: "BRAIN SURGEON" },
+  { category: "Occupation", phrase: "PRIVATE INVESTIGATOR" },
+  { category: "Occupation", phrase: "PARK RANGER" },
+  { category: "Phrase", phrase: "ACTIONS SPEAK LOUDER THAN WORDS" },
+  { category: "Phrase", phrase: "BETTER LATE THAN NEVER" },
+  { category: "Phrase", phrase: "BREAK A LEG" },
+  { category: "Phrase", phrase: "ONCE IN A LIFETIME" },
+  { category: "Place", phrase: "TIMES SQUARE" },
+  { category: "Place", phrase: "CENTRAL PARK" },
+  { category: "Place", phrase: "LAS VEGAS STRIP" },
+  { category: "Place", phrase: "NIAGARA FALLS" },
+  { category: "Song Title", phrase: "BOHEMIAN RHAPSODY" },
+  { category: "Song Title", phrase: "HOTEL CALIFORNIA" },
+  { category: "Song Title", phrase: "STAIRWAY TO HEAVEN" },
+  { category: "Song Title", phrase: "SWEET HOME ALABAMA" },
+  { category: "Thing", phrase: "TREASURE CHEST" },
+  { category: "Thing", phrase: "SHOOTING STAR" },
+  { category: "Thing", phrase: "RAINBOW AFTER THE STORM" },
+  { category: "Thing", phrase: "SILVER LINING" },
+];
+
+/* ═══════════════════════════════════════════════════════
+   WHEEL SEGMENTS
+   ═══════════════════════════════════════════════════════ */
+const WHEEL_SEGMENTS = [
+  { label: "$500",  value: 500,  color: "#e74c3c" },
+  { label: "$600",  value: 600,  color: "#2ecc71" },
+  { label: "$700",  value: 700,  color: "#3498db" },
+  { label: "$300",  value: 300,  color: "#f39c12" },
+  { label: "$800",  value: 800,  color: "#9b59b6" },
+  { label: "BANKRUPT", value: "bankrupt", color: "#1a1a2e" },
+  { label: "$550",  value: 550,  color: "#1abc9c" },
+  { label: "$400",  value: 400,  color: "#e67e22" },
+  { label: "$900",  value: 900,  color: "#2c3e50" },
+  { label: "$350",  value: 350,  color: "#d35400" },
+  { label: "LOSE\nTURN", value: "lose_turn", color: "#ecf0f1", textColor: "#333" },
+  { label: "$450",  value: 450,  color: "#c0392b" },
+  { label: "$750",  value: 750,  color: "#16a085" },
+  { label: "FREE\nPLAY", value: "free_play", color: "#27ae60" },
+  { label: "$250",  value: 250,  color: "#8e44ad" },
+  { label: "$600",  value: 600,  color: "#2980b9" },
+  { label: "$100",  value: 100,  color: "#f1c40f", textColor: "#333" },
+  { label: "$300",  value: 300,  color: "#e74c3c" },
+  { label: "$500",  value: 500,  color: "#3498db" },
+  { label: "BANKRUPT", value: "bankrupt", color: "#1a1a2e" },
+  { label: "$650",  value: 650,  color: "#e67e22" },
+  { label: "$200",  value: 200,  color: "#9b59b6" },
+  { label: "$850",  value: 850,  color: "#2ecc71" },
+  { label: "$150",  value: 150,  color: "#d35400" },
+];
+
+const VOWELS = new Set(['A','E','I','O','U']);
+const CONSONANTS = 'BCDFGHJKLMNPQRSTVWXYZ'.split('');
+
+/* ═══════════════════════════════════════════════════════
+   GAME STATE
+   ═══════════════════════════════════════════════════════ */
+let players = [];
+let currentPlayerIdx = 0;
+let currentRound = 0;
+let totalRounds = 4;
+let puzzle = null;    // { category, phrase }
+let revealedLetters = new Set();
+let usedLetters = new Set();
+let wheelAngle = 0;
+let spinning = false;
+let currentWheelValue = null;
+let inputMode = null; // null | 'consonant' | 'vowel' | 'solve' | 'free_consonant'
+let usedPuzzleIndices = new Set();
+let cpuThinking = false;
+
+/* ═══════════════════════════════════════════════════════
+   DOM
+   ═══════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+
+// Setup
+const setupScreen = $('setup-screen');
+const numHumansSelect = $('num-humans');
+const numRoundsSelect = $('num-rounds');
+const playerNameFields = document.querySelectorAll('.player-name-field');
+const startBtn = $('start-btn');
+
+// Game
+const gameScreen = $('game-screen');
+const roundBanner = $('round-banner');
+const scoreboard = $('scoreboard');
+const categoryLabel = $('category-label');
+const puzzleBoard = $('puzzle-board');
+const usedLettersEl = $('used-letters');
+const messageLog = $('message-log');
+const wheelCanvas = $('wheel-canvas');
+const ctx = wheelCanvas.getContext('2d');
+const btnSpin = $('btn-spin');
+const btnVowel = $('btn-vowel');
+const btnSolve = $('btn-solve');
+const keyboard = $('keyboard');
+const solveArea = $('solve-area');
+const solveInput = $('solve-input');
+const solveSubmit = $('solve-submit');
+const solveCancel = $('solve-cancel');
+
+// End
+const endScreen = $('end-screen');
+
+/* ═══════════════════════════════════════════════════════
+   SETUP
+   ═══════════════════════════════════════════════════════ */
+numHumansSelect.addEventListener('change', () => {
+  const n = parseInt(numHumansSelect.value);
+  playerNameFields.forEach((el, i) => {
+    el.classList.toggle('visible', i < n);
+  });
+});
+
+startBtn.addEventListener('click', startGame);
+$('play-again-btn').addEventListener('click', () => {
+  endScreen.style.display = 'none';
+  setupScreen.style.display = 'flex';
+});
+
+function startGame() {
+  const numHumans = parseInt(numHumansSelect.value);
+  totalRounds = parseInt(numRoundsSelect.value);
+  players = [];
+
+  for (let i = 0; i < 3; i++) {
+    if (i < numHumans) {
+      const nameInput = $('pname-' + i);
+      const name = nameInput.value.trim() || ('Player ' + (i + 1));
+      players.push({ name, cpu: false, roundMoney: 0, totalMoney: 0 });
+    } else {
+      const cpuNames = ['CPU Alice', 'CPU Bob', 'CPU Carol'];
+      players.push({ name: cpuNames[i], cpu: true, roundMoney: 0, totalMoney: 0 });
+    }
+  }
+
+  currentRound = 0;
+  usedPuzzleIndices.clear();
+  setupScreen.style.display = 'none';
+  gameScreen.style.display = 'block';
+
+  buildKeyboard();
+  drawWheel(0);
+  startRound();
+}
+
+/* ═══════════════════════════════════════════════════════
+   KEYBOARD
+   ═══════════════════════════════════════════════════════ */
+function buildKeyboard() {
+  keyboard.innerHTML = '';
+  for (let c = 65; c <= 90; c++) {
+    const letter = String.fromCharCode(c);
+    const btn = document.createElement('button');
+    btn.className = 'key-btn' + (VOWELS.has(letter) ? ' vowel' : '');
+    btn.textContent = letter;
+    btn.dataset.letter = letter;
+    btn.addEventListener('click', () => onKeyboardClick(letter));
+    keyboard.appendChild(btn);
+  }
+}
+
+function updateKeyboard() {
+  keyboard.querySelectorAll('.key-btn').forEach(btn => {
+    const letter = btn.dataset.letter;
+    btn.disabled = usedLetters.has(letter);
+
+    if (inputMode === 'consonant' || inputMode === 'free_consonant') {
+      btn.disabled = btn.disabled || VOWELS.has(letter);
+    } else if (inputMode === 'vowel') {
+      btn.disabled = btn.disabled || !VOWELS.has(letter);
+    }
+  });
+}
+
+function onKeyboardClick(letter) {
+  if (!inputMode || inputMode === 'solve') return;
+
+  if (inputMode === 'vowel') {
+    if (!VOWELS.has(letter) || usedLetters.has(letter)) return;
+    guessVowel(letter);
+  } else {
+    if (VOWELS.has(letter) || usedLetters.has(letter)) return;
+    guessConsonant(letter);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   ROUND MANAGEMENT
+   ═══════════════════════════════════════════════════════ */
+function startRound() {
+  currentRound++;
+  if (currentRound > totalRounds) {
+    endGame();
+    return;
+  }
+
+  players.forEach(p => p.roundMoney = 0);
+  revealedLetters.clear();
+  usedLetters.clear();
+  currentWheelValue = null;
+  inputMode = null;
+  currentPlayerIdx = (currentRound - 1) % 3;
+
+  puzzle = pickPuzzle();
+  roundBanner.textContent = `Round ${currentRound} of ${totalRounds}`;
+  categoryLabel.textContent = puzzle.category;
+
+  renderBoard();
+  renderScoreboard();
+  updateUsedLetters();
+  setMessage(`Round ${currentRound}! ${players[currentPlayerIdx].name}'s turn. Spin the wheel!`);
+  setControlState('spin');
+
+  if (players[currentPlayerIdx].cpu) {
+    scheduleCpuTurn();
+  }
+}
+
+function pickPuzzle() {
+  let idx;
+  const available = [];
+  for (let i = 0; i < PUZZLES.length; i++) {
+    if (!usedPuzzleIndices.has(i)) available.push(i);
+  }
+  if (available.length === 0) {
+    usedPuzzleIndices.clear();
+    for (let i = 0; i < PUZZLES.length; i++) available.push(i);
+  }
+  idx = available[Math.floor(Math.random() * available.length)];
+  usedPuzzleIndices.add(idx);
+  return { ...PUZZLES[idx] };
+}
+
+function nextPlayer() {
+  currentPlayerIdx = (currentPlayerIdx + 1) % 3;
+  currentWheelValue = null;
+  inputMode = null;
+  renderScoreboard();
+  setMessage(`${players[currentPlayerIdx].name}'s turn. Spin the wheel!`);
+  setControlState('spin');
+
+  if (players[currentPlayerIdx].cpu) {
+    scheduleCpuTurn();
+  }
+}
+
+function endGame() {
+  gameScreen.style.display = 'none';
+  endScreen.style.display = 'flex';
+
+  let maxMoney = -1;
+  let winnerName = '';
+  const scoresHtml = players.map(p => {
+    if (p.totalMoney > maxMoney) {
+      maxMoney = p.totalMoney;
+      winnerName = p.name;
+    }
+    return `<div>${p.name}: <strong style="color:var(--gold);">$${p.totalMoney.toLocaleString()}</strong></div>`;
+  }).join('');
+
+  $('winner-text').textContent = `${winnerName} wins with $${maxMoney.toLocaleString()}!`;
+  $('final-scores').innerHTML = scoresHtml;
+}
+
+/* ═══════════════════════════════════════════════════════
+   PUZZLE BOARD RENDERING
+   ═══════════════════════════════════════════════════════ */
+function renderBoard() {
+  puzzleBoard.innerHTML = '';
+  const words = puzzle.phrase.split(' ');
+  // Break into rows (max ~14 chars per row)
+  const rows = [];
+  let currentRow = [];
+  let currentLen = 0;
+  words.forEach(word => {
+    if (currentLen + word.length + (currentRow.length > 0 ? 1 : 0) > 14 && currentRow.length > 0) {
+      rows.push(currentRow);
+      currentRow = [word];
+      currentLen = word.length;
+    } else {
+      if (currentRow.length > 0) currentLen += 1; // space
+      currentRow.push(word);
+      currentLen += word.length;
+    }
+  });
+  if (currentRow.length > 0) rows.push(currentRow);
+
+  rows.forEach(rowWords => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'puzzle-row';
+    rowWords.forEach((word, wi) => {
+      if (wi > 0) {
+        const space = document.createElement('div');
+        space.className = 'tile space';
+        rowEl.appendChild(space);
+      }
+      for (const ch of word) {
+        const tile = document.createElement('div');
+        if (/[A-Z]/.test(ch)) {
+          tile.className = 'tile letter';
+          tile.dataset.letter = ch;
+          if (revealedLetters.has(ch)) {
+            tile.classList.add('revealed');
+            tile.textContent = ch;
+          }
+        } else {
+          tile.className = 'tile punct';
+          tile.textContent = ch;
+        }
+        rowEl.appendChild(tile);
+      }
+    });
+    puzzleBoard.appendChild(rowEl);
+  });
+}
+
+function revealLetter(letter) {
+  revealedLetters.add(letter);
+  document.querySelectorAll(`.tile.letter[data-letter="${letter}"]`).forEach(tile => {
+    tile.classList.add('revealed');
+    tile.textContent = letter;
+  });
+}
+
+function isPuzzleSolved() {
+  const letters = new Set(puzzle.phrase.replace(/[^A-Z]/g, '').split(''));
+  for (const l of letters) {
+    if (!revealedLetters.has(l)) return false;
+  }
+  return true;
+}
+
+function countLetterInPuzzle(letter) {
+  return puzzle.phrase.split('').filter(c => c === letter).length;
+}
+
+/* ═══════════════════════════════════════════════════════
+   SCOREBOARD
+   ═══════════════════════════════════════════════════════ */
+function renderScoreboard() {
+  scoreboard.innerHTML = '';
+  players.forEach((p, i) => {
+    const card = document.createElement('div');
+    card.className = 'player-card' + (i === currentPlayerIdx ? ' active' : '');
+    card.innerHTML = `
+      <div class="name">${p.name}${p.cpu ? '<span class="cpu-badge">CPU</span>' : ''}</div>
+      <div class="round-money">$${p.roundMoney.toLocaleString()}</div>
+      <div class="total-label">Total Winnings</div>
+      <div class="total-money">$${p.totalMoney.toLocaleString()}</div>
+    `;
+    scoreboard.appendChild(card);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   USED LETTERS
+   ═══════════════════════════════════════════════════════ */
+function updateUsedLetters() {
+  if (usedLetters.size === 0) {
+    usedLettersEl.textContent = '';
+  } else {
+    usedLettersEl.textContent = 'Used: ' + [...usedLetters].sort().join(' ');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   MESSAGE LOG
+   ═══════════════════════════════════════════════════════ */
+function setMessage(msg) {
+  messageLog.textContent = msg;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CONTROL STATE
+   ═══════════════════════════════════════════════════════ */
+function setControlState(state) {
+  keyboard.classList.remove('visible');
+  solveArea.classList.remove('visible');
+  btnSpin.disabled = true;
+  btnVowel.disabled = true;
+  btnSolve.disabled = true;
+
+  const cp = players[currentPlayerIdx];
+
+  if (state === 'spin') {
+    inputMode = null;
+    btnSpin.disabled = cp.cpu;
+    btnSolve.disabled = cp.cpu;
+    // Can buy vowel if has $250 and there are unused vowels
+    const hasUnusedVowels = [...VOWELS].some(v => !usedLetters.has(v) && puzzle.phrase.includes(v));
+    btnVowel.disabled = cp.cpu || cp.roundMoney < 250 || !hasUnusedVowels;
+  } else if (state === 'pick_consonant') {
+    inputMode = 'consonant';
+    keyboard.classList.add('visible');
+    updateKeyboard();
+  } else if (state === 'free_consonant') {
+    inputMode = 'free_consonant';
+    keyboard.classList.add('visible');
+    updateKeyboard();
+  } else if (state === 'pick_vowel') {
+    inputMode = 'vowel';
+    keyboard.classList.add('visible');
+    updateKeyboard();
+  } else if (state === 'solving') {
+    inputMode = 'solve';
+    solveArea.classList.add('visible');
+    solveInput.value = '';
+    solveInput.focus();
+  } else if (state === 'disabled') {
+    inputMode = null;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   WHEEL DRAWING & SPINNING
+   ═══════════════════════════════════════════════════════ */
+function drawWheel(angle) {
+  const size = 600;
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = size / 2 - 10;
+  const numSeg = WHEEL_SEGMENTS.length;
+  const arcSize = (2 * Math.PI) / numSeg;
+
+  ctx.clearRect(0, 0, size, size);
+
+  // Outer rim
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + 8, 0, 2 * Math.PI);
+  ctx.fillStyle = '#d4a520';
+  ctx.fill();
+
+  WHEEL_SEGMENTS.forEach((seg, i) => {
+    const startAngle = angle + i * arcSize;
+    const endAngle = startAngle + arcSize;
+
+    // Segment
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fillStyle = seg.color;
+    ctx.fill();
+    ctx.strokeStyle = '#d4a520';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Text
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(startAngle + arcSize / 2);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = seg.textColor || '#fff';
+    ctx.font = 'bold 16px sans-serif';
+    const lines = seg.label.split('\n');
+    const textR = radius * 0.7;
+    lines.forEach((line, li) => {
+      ctx.fillText(line, textR, (li - (lines.length - 1) / 2) * 18);
+    });
+    ctx.restore();
+  });
+
+  // Center hub
+  ctx.beginPath();
+  ctx.arc(cx, cy, 28, 0, 2 * Math.PI);
+  ctx.fillStyle = '#d4a520';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, 20, 0, 2 * Math.PI);
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fill();
+}
+
+function spinWheel() {
+  if (spinning) return;
+  spinning = true;
+  setControlState('disabled');
+
+  const extraSpins = 3 + Math.random() * 4; // 3-7 full rotations
+  const totalAngle = extraSpins * 2 * Math.PI;
+  const duration = 3000 + Math.random() * 1500;
+  const startTime = performance.now();
+  const startAngle = wheelAngle;
+
+  function easeOut(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function animate(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    const eased = easeOut(t);
+    wheelAngle = startAngle + totalAngle * eased;
+    drawWheel(wheelAngle);
+
+    if (t < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      spinning = false;
+      onWheelStopped();
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+function onWheelStopped() {
+  // Determine which segment the pointer is at (top = -PI/2)
+  const numSeg = WHEEL_SEGMENTS.length;
+  const arcSize = (2 * Math.PI) / numSeg;
+  // The pointer is at the top (angle = -PI/2 = 3PI/2)
+  // Normalize wheel angle
+  let normalAngle = wheelAngle % (2 * Math.PI);
+  if (normalAngle < 0) normalAngle += 2 * Math.PI;
+  // Pointer at top means angle offset is -PI/2
+  let pointerAngle = (2 * Math.PI - normalAngle + 3 * Math.PI / 2) % (2 * Math.PI);
+  let segIndex = Math.floor(pointerAngle / arcSize) % numSeg;
+
+  const segment = WHEEL_SEGMENTS[segIndex];
+  currentWheelValue = segment.value;
+
+  const cp = players[currentPlayerIdx];
+
+  if (segment.value === 'bankrupt') {
+    setMessage(`${cp.name} hit BANKRUPT! Lost $${cp.roundMoney.toLocaleString()}.`);
+    cp.roundMoney = 0;
+    renderScoreboard();
+    setTimeout(() => nextPlayer(), 1800);
+  } else if (segment.value === 'lose_turn') {
+    setMessage(`${cp.name} hit LOSE A TURN!`);
+    setTimeout(() => nextPlayer(), 1800);
+  } else if (segment.value === 'free_play') {
+    setMessage(`${cp.name} landed on FREE PLAY! Pick any letter — no penalty if it's not there.`);
+    if (cp.cpu) {
+      setTimeout(() => cpuFreePlay(), 1200);
+    } else {
+      setControlState('free_consonant');
+    }
+  } else {
+    setMessage(`${cp.name} spun $${segment.value}! Pick a consonant.`);
+    if (cp.cpu) {
+      setTimeout(() => cpuPickConsonant(), 1200);
+    } else {
+      setControlState('pick_consonant');
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   GUESS CONSONANT / VOWEL
+   ═══════════════════════════════════════════════════════ */
+function guessConsonant(letter) {
+  usedLetters.add(letter);
+  updateUsedLetters();
+  keyboard.classList.remove('visible');
+
+  const cp = players[currentPlayerIdx];
+  const count = countLetterInPuzzle(letter);
+  const isFree = inputMode === 'free_consonant';
+
+  if (count > 0) {
+    const amount = (typeof currentWheelValue === 'number') ? currentWheelValue * count : 500 * count;
+    cp.roundMoney += amount;
+    revealLetter(letter);
+    renderBoard();
+    renderScoreboard();
+    setMessage(`${cp.name}: "${letter}" appears ${count} time${count > 1 ? 's' : ''}! +$${amount.toLocaleString()}`);
+
+    if (isPuzzleSolved()) {
+      puzzleSolvedBy(currentPlayerIdx);
+      return;
+    }
+    // Same player continues
+    setTimeout(() => {
+      setMessage(`${cp.name}'s turn continues. Spin, buy a vowel, or solve!`);
+      setControlState('spin');
+      if (cp.cpu) scheduleCpuTurn();
+    }, 1400);
+  } else {
+    if (isFree) {
+      setMessage(`${cp.name}: "${letter}" is not in the puzzle, but it's a FREE PLAY — no penalty!`);
+      setTimeout(() => {
+        setMessage(`${cp.name}'s turn continues. Spin, buy a vowel, or solve!`);
+        setControlState('spin');
+        if (cp.cpu) scheduleCpuTurn();
+      }, 1400);
+    } else {
+      setMessage(`${cp.name}: "${letter}" is not in the puzzle.`);
+      setTimeout(() => nextPlayer(), 1400);
+    }
+  }
+}
+
+function guessVowel(letter) {
+  const cp = players[currentPlayerIdx];
+  cp.roundMoney -= 250;
+  usedLetters.add(letter);
+  updateUsedLetters();
+  keyboard.classList.remove('visible');
+
+  const count = countLetterInPuzzle(letter);
+  if (count > 0) {
+    revealLetter(letter);
+    renderBoard();
+    renderScoreboard();
+    setMessage(`${cp.name}: "${letter}" appears ${count} time${count > 1 ? 's' : ''}!`);
+
+    if (isPuzzleSolved()) {
+      puzzleSolvedBy(currentPlayerIdx);
+      return;
+    }
+    setTimeout(() => {
+      setMessage(`${cp.name}'s turn continues. Spin, buy a vowel, or solve!`);
+      setControlState('spin');
+      if (cp.cpu) scheduleCpuTurn();
+    }, 1400);
+  } else {
+    renderScoreboard();
+    setMessage(`${cp.name}: "${letter}" is not in the puzzle. -$250.`);
+    setTimeout(() => nextPlayer(), 1400);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   SOLVE PUZZLE
+   ═══════════════════════════════════════════════════════ */
+function attemptSolve(guess) {
+  const cp = players[currentPlayerIdx];
+  const normalized = guess.toUpperCase().replace(/[^A-Z ]/g, '').replace(/\s+/g, ' ').trim();
+  const target = puzzle.phrase.replace(/[^A-Z ]/g, '').replace(/\s+/g, ' ').trim();
+
+  if (normalized === target) {
+    // Reveal all letters
+    for (const ch of puzzle.phrase) {
+      if (/[A-Z]/.test(ch)) revealedLetters.add(ch);
+    }
+    renderBoard();
+    puzzleSolvedBy(currentPlayerIdx);
+  } else {
+    setMessage(`${cp.name} guessed wrong! The answer was not "${guess.toUpperCase()}".`);
+    setTimeout(() => nextPlayer(), 1800);
+  }
+}
+
+function puzzleSolvedBy(playerIdx) {
+  const p = players[playerIdx];
+  const minWin = 1000;
+  if (p.roundMoney < minWin) p.roundMoney = minWin;
+  p.totalMoney += p.roundMoney;
+
+  setMessage(`${p.name} solved it! "${puzzle.phrase}" — Won $${p.roundMoney.toLocaleString()} this round!`);
+  renderScoreboard();
+  setControlState('disabled');
+
+  setTimeout(() => startRound(), 3500);
+}
+
+/* ═══════════════════════════════════════════════════════
+   BUTTON HANDLERS
+   ═══════════════════════════════════════════════════════ */
+btnSpin.addEventListener('click', () => {
+  if (spinning || players[currentPlayerIdx].cpu) return;
+  spinWheel();
+});
+
+btnVowel.addEventListener('click', () => {
+  if (players[currentPlayerIdx].cpu) return;
+  const cp = players[currentPlayerIdx];
+  if (cp.roundMoney < 250) return;
+  setMessage(`${cp.name} is buying a vowel ($250). Pick a vowel.`);
+  setControlState('pick_vowel');
+});
+
+btnSolve.addEventListener('click', () => {
+  if (players[currentPlayerIdx].cpu) return;
+  setMessage(`${players[currentPlayerIdx].name} wants to solve the puzzle!`);
+  setControlState('solving');
+});
+
+solveSubmit.addEventListener('click', () => {
+  const guess = solveInput.value.trim();
+  if (!guess) return;
+  solveArea.classList.remove('visible');
+  attemptSolve(guess);
+});
+
+solveInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    solveSubmit.click();
+  }
+});
+
+solveCancel.addEventListener('click', () => {
+  setControlState('spin');
+  setMessage(`${players[currentPlayerIdx].name}'s turn. Spin, buy a vowel, or solve!`);
+});
+
+/* ═══════════════════════════════════════════════════════
+   CPU / AI PLAYER LOGIC
+   ═══════════════════════════════════════════════════════ */
+const CPU_DELAY_MIN = 1200;
+const CPU_DELAY_MAX = 2500;
+
+function cpuDelay() {
+  return CPU_DELAY_MIN + Math.random() * (CPU_DELAY_MAX - CPU_DELAY_MIN);
+}
+
+function scheduleCpuTurn() {
+  if (cpuThinking) return;
+  cpuThinking = true;
+  setTimeout(() => {
+    cpuThinking = false;
+    cpuTakeTurn();
+  }, cpuDelay());
+}
+
+function cpuTakeTurn() {
+  const cp = players[currentPlayerIdx];
+
+  // Decide: solve, buy vowel, or spin
+  const unrevealedCount = puzzle.phrase.replace(/[^A-Z]/g, '').split('').filter(c => !revealedLetters.has(c)).length;
+  const totalLetterCount = puzzle.phrase.replace(/[^A-Z]/g, '').length;
+  const revealedRatio = (totalLetterCount - unrevealedCount) / totalLetterCount;
+
+  // CPU solve chance increases as more letters are revealed
+  const solveChance = revealedRatio > 0.85 ? 0.6 : revealedRatio > 0.7 ? 0.3 : revealedRatio > 0.5 ? 0.1 : 0.02;
+
+  if (Math.random() < solveChance) {
+    cpuAttemptSolve();
+    return;
+  }
+
+  // Buy vowel?
+  const hasUnusedVowels = [...VOWELS].some(v => !usedLetters.has(v) && puzzle.phrase.includes(v));
+  if (cp.roundMoney >= 250 && hasUnusedVowels && Math.random() < 0.25) {
+    cpuBuyVowel();
+    return;
+  }
+
+  // Spin
+  setMessage(`${cp.name} spins the wheel...`);
+  spinWheel();
+}
+
+function cpuPickConsonant() {
+  const cp = players[currentPlayerIdx];
+
+  // Get available consonants
+  const available = CONSONANTS.filter(c => !usedLetters.has(c));
+  if (available.length === 0) {
+    nextPlayer();
+    return;
+  }
+
+  // Smart pick: prefer consonants that are common in English, with some randomness
+  const frequency = 'RSTLNDHCMPBGFWYVKJXQZ';
+  let pick = null;
+
+  // 55% chance of picking a good (frequent) letter, 45% random
+  if (Math.random() < 0.55) {
+    for (const c of frequency) {
+      if (available.includes(c)) {
+        pick = c;
+        break;
+      }
+    }
+  }
+  if (!pick) {
+    pick = available[Math.floor(Math.random() * available.length)];
+  }
+
+  setMessage(`${cp.name} guesses "${pick}"...`);
+  setTimeout(() => {
+    inputMode = 'consonant';
+    guessConsonant(pick);
+  }, 800);
+}
+
+function cpuFreePlay() {
+  const cp = players[currentPlayerIdx];
+  const available = CONSONANTS.filter(c => !usedLetters.has(c));
+  if (available.length === 0) {
+    nextPlayer();
+    return;
+  }
+  const pick = available[Math.floor(Math.random() * available.length)];
+  setMessage(`${cp.name} (FREE PLAY) guesses "${pick}"...`);
+  setTimeout(() => {
+    inputMode = 'free_consonant';
+    guessConsonant(pick);
+  }, 800);
+}
+
+function cpuBuyVowel() {
+  const cp = players[currentPlayerIdx];
+  const availableVowels = [...VOWELS].filter(v => !usedLetters.has(v));
+  if (availableVowels.length === 0) return;
+
+  // Prefer vowels that are in the puzzle (50% chance of "knowing")
+  let pick;
+  const vowelsInPuzzle = availableVowels.filter(v => puzzle.phrase.includes(v));
+  if (vowelsInPuzzle.length > 0 && Math.random() < 0.50) {
+    pick = vowelsInPuzzle[Math.floor(Math.random() * vowelsInPuzzle.length)];
+  } else {
+    pick = availableVowels[Math.floor(Math.random() * availableVowels.length)];
+  }
+
+  setMessage(`${cp.name} buys a vowel: "${pick}"...`);
+  setTimeout(() => {
+    inputMode = 'vowel';
+    guessVowel(pick);
+  }, 1000);
+}
+
+function cpuAttemptSolve() {
+  const cp = players[currentPlayerIdx];
+  const unrevealedCount = puzzle.phrase.replace(/[^A-Z]/g, '').split('').filter(c => !revealedLetters.has(c)).length;
+  const totalLetterCount = puzzle.phrase.replace(/[^A-Z]/g, '').length;
+  const revealedRatio = (totalLetterCount - unrevealedCount) / totalLetterCount;
+
+  // Chance of getting it right depends on how many letters are revealed
+  let correctChance;
+  if (revealedRatio >= 0.9) correctChance = 0.85;
+  else if (revealedRatio >= 0.75) correctChance = 0.55;
+  else if (revealedRatio >= 0.6) correctChance = 0.35;
+  else if (revealedRatio >= 0.4) correctChance = 0.15;
+  else correctChance = 0.05;
+
+  setMessage(`${cp.name} wants to solve the puzzle...`);
+
+  setTimeout(() => {
+    if (Math.random() < correctChance) {
+      // Correct solve
+      setMessage(`${cp.name} says: "${puzzle.phrase}"!`);
+      setTimeout(() => attemptSolve(puzzle.phrase), 1200);
+    } else {
+      // Wrong solve — generate a plausible wrong answer
+      const wrongGuess = generateWrongGuess();
+      setMessage(`${cp.name} says: "${wrongGuess}"!`);
+      setTimeout(() => attemptSolve(wrongGuess), 1200);
+    }
+  }, 1200);
+}
+
+function generateWrongGuess() {
+  // Create a wrong guess by filling unrevealed letters randomly
+  let guess = '';
+  for (const ch of puzzle.phrase) {
+    if (/[A-Z]/.test(ch)) {
+      if (revealedLetters.has(ch)) {
+        guess += ch;
+      } else {
+        // Random wrong letter
+        const candidates = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        guess += candidates[Math.floor(Math.random() * candidates.length)];
+      }
+    } else {
+      guess += ch;
+    }
+  }
+  // Make sure it's actually wrong
+  if (guess === puzzle.phrase) {
+    // Flip one letter
+    const idx = guess.split('').findIndex((c, i) => /[A-Z]/.test(c));
+    if (idx >= 0) {
+      const arr = guess.split('');
+      arr[idx] = arr[idx] === 'A' ? 'B' : 'A';
+      guess = arr.join('');
+    }
+  }
+  return guess;
+}
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════ */
+drawWheel(0);
+</script>
+</body>
+</html>
