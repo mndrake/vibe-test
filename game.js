@@ -155,6 +155,9 @@ let inputMode = null; // null | 'consonant' | 'vowel' | 'solve' | 'free_consonan
 let usedPuzzleIndices = new Set();
 let cpuThinking = false;
 let numBankrupts = 2;
+let solveGuesses = {};  // { tileIndex: letter } — user guesses during solve mode
+let solveTileIndices = []; // ordered list of unrevealed tile indices for cursor navigation
+let solveCursorPos = 0; // index into solveTileIndices
 
 /* ═══════════════════════════════════════════════════════
    DOM
@@ -182,8 +185,8 @@ const btnSpin = $('btn-spin');
 const btnVowel = $('btn-vowel');
 const btnSolve = $('btn-solve');
 const keyboard = $('keyboard');
-const solveArea = $('solve-area');
-const solveInput = $('solve-input');
+const solveControls = $('solve-controls');
+const solveHint = $('solve-hint');
 const solveSubmit = $('solve-submit');
 const solveCancel = $('solve-cancel');
 
@@ -375,6 +378,9 @@ function renderBoard() {
   });
   if (currentRow.length > 0) rows.push(currentRow);
 
+  const isSolving = inputMode === 'solve';
+  let tileIndex = 0;
+
   rows.forEach(rowWords => {
     const rowEl = document.createElement('div');
     rowEl.className = 'puzzle-row';
@@ -389,10 +395,31 @@ function renderBoard() {
         if (/[A-Z]/.test(ch)) {
           tile.className = 'tile letter';
           tile.dataset.letter = ch;
+          tile.dataset.tileIndex = tileIndex;
           if (revealedLetters.has(ch)) {
             tile.classList.add('revealed');
             tile.textContent = ch;
+          } else if (isSolving) {
+            // Unrevealed tile in solve mode
+            tile.classList.add('editable');
+            if (solveGuesses[tileIndex]) {
+              tile.classList.add('guess');
+              tile.textContent = solveGuesses[tileIndex];
+            }
+            // Highlight active cursor tile
+            if (solveTileIndices[solveCursorPos] === tileIndex) {
+              tile.classList.add('active-tile');
+            }
+            tile.addEventListener('click', () => {
+              // Allow clicking a tile to move cursor there
+              const pos = solveTileIndices.indexOf(tileIndex);
+              if (pos >= 0) {
+                solveCursorPos = pos;
+                renderBoard();
+              }
+            });
           }
+          tileIndex++;
         } else {
           tile.className = 'tile punct';
           tile.textContent = ch;
@@ -465,7 +492,8 @@ function setMessage(msg) {
    ═══════════════════════════════════════════════════════ */
 function setControlState(state) {
   keyboard.classList.remove('visible');
-  solveArea.classList.remove('visible');
+  solveControls.classList.remove('visible');
+  solveHint.classList.remove('visible');
   btnSpin.disabled = true;
   btnVowel.disabled = true;
   btnSolve.disabled = true;
@@ -473,6 +501,7 @@ function setControlState(state) {
   const cp = players[currentPlayerIdx];
 
   if (state === 'spin') {
+    if (inputMode === 'solve') exitSolveMode();
     inputMode = null;
     btnSpin.disabled = cp.cpu;
     btnSolve.disabled = cp.cpu;
@@ -493,12 +522,125 @@ function setControlState(state) {
     updateKeyboard();
   } else if (state === 'solving') {
     inputMode = 'solve';
-    solveArea.classList.add('visible');
-    solveInput.value = '';
-    solveInput.focus();
+    enterSolveMode();
   } else if (state === 'disabled') {
+    if (inputMode === 'solve') exitSolveMode();
     inputMode = null;
   }
+}
+
+/* ═══════════════════════════════════════════════════════
+   INLINE SOLVE MODE
+   ═══════════════════════════════════════════════════════ */
+function enterSolveMode() {
+  solveGuesses = {};
+  solveCursorPos = 0;
+
+  // Build ordered list of unrevealed letter tile indices
+  solveTileIndices = [];
+  let tileIndex = 0;
+  for (const ch of puzzle.phrase) {
+    if (/[A-Z]/.test(ch)) {
+      if (!revealedLetters.has(ch)) {
+        solveTileIndices.push(tileIndex);
+      }
+      tileIndex++;
+    }
+  }
+
+  solveControls.classList.add('visible');
+  solveHint.classList.add('visible');
+  renderBoard();
+  document.addEventListener('keydown', solveKeyHandler);
+}
+
+function exitSolveMode() {
+  solveGuesses = {};
+  solveTileIndices = [];
+  solveCursorPos = 0;
+  solveControls.classList.remove('visible');
+  solveHint.classList.remove('visible');
+  document.removeEventListener('keydown', solveKeyHandler);
+  renderBoard();
+}
+
+function solveKeyHandler(e) {
+  if (inputMode !== 'solve') return;
+
+  const key = e.key.toUpperCase();
+
+  if (/^[A-Z]$/.test(key) && solveTileIndices.length > 0) {
+    e.preventDefault();
+    // Place letter at current cursor position
+    const tileIdx = solveTileIndices[solveCursorPos];
+    solveGuesses[tileIdx] = key;
+    // Advance cursor to next unfilled tile (or stay at end)
+    if (solveCursorPos < solveTileIndices.length - 1) {
+      solveCursorPos++;
+    }
+    renderBoard();
+  } else if (e.key === 'Backspace') {
+    e.preventDefault();
+    const tileIdx = solveTileIndices[solveCursorPos];
+    if (solveGuesses[tileIdx]) {
+      // Clear current tile
+      delete solveGuesses[tileIdx];
+    } else if (solveCursorPos > 0) {
+      // Move back and clear that tile
+      solveCursorPos--;
+      delete solveGuesses[solveTileIndices[solveCursorPos]];
+    }
+    renderBoard();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    submitSolveGuess();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    cancelSolve();
+  }
+}
+
+function buildGuessString() {
+  // Reconstruct the full phrase from revealed letters + guesses
+  let result = '';
+  let tileIndex = 0;
+  for (const ch of puzzle.phrase) {
+    if (/[A-Z]/.test(ch)) {
+      if (revealedLetters.has(ch)) {
+        result += ch;
+      } else if (solveGuesses[tileIndex]) {
+        result += solveGuesses[tileIndex];
+      } else {
+        result += '?'; // unfilled tile — will cause mismatch
+      }
+      tileIndex++;
+    } else {
+      result += ch;
+    }
+  }
+  return result;
+}
+
+function submitSolveGuess() {
+  if (inputMode !== 'solve') return;
+  const guess = buildGuessString();
+  // Clean up solve mode fully
+  document.removeEventListener('keydown', solveKeyHandler);
+  solveControls.classList.remove('visible');
+  solveHint.classList.remove('visible');
+  solveGuesses = {};
+  solveTileIndices = [];
+  solveCursorPos = 0;
+  inputMode = null;
+  renderBoard(); // re-render to clear guess styling
+  attemptSolve(guess);
+}
+
+function cancelSolve() {
+  exitSolveMode();
+  inputMode = null;
+  setControlState('spin');
+  setMessage(`${players[currentPlayerIdx].name}'s turn. Spin, buy a vowel, or solve!`);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -814,21 +956,11 @@ btnSolve.addEventListener('click', () => {
 });
 
 solveSubmit.addEventListener('click', () => {
-  const guess = solveInput.value.trim();
-  if (!guess) return;
-  solveArea.classList.remove('visible');
-  attemptSolve(guess);
-});
-
-solveInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    solveSubmit.click();
-  }
+  submitSolveGuess();
 });
 
 solveCancel.addEventListener('click', () => {
-  setControlState('spin');
-  setMessage(`${players[currentPlayerIdx].name}'s turn. Spin, buy a vowel, or solve!`);
+  cancelSolve();
 });
 
 /* ═══════════════════════════════════════════════════════

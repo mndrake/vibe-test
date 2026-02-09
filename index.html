@@ -85,12 +85,10 @@
 
   <div class="letter-keyboard" id="keyboard"></div>
 
-  <div class="solve-area" id="solve-area">
-    <input type="text" id="solve-input" placeholder="Type your answer..." autocomplete="off">
-    <div style="display:flex;gap:.5rem;">
-      <button class="btn btn-green btn-small" id="solve-submit">Submit</button>
-      <button class="btn btn-red btn-small" id="solve-cancel">Cancel</button>
-    </div>
+  <div class="solve-hint" id="solve-hint">Type letters into the blank tiles. Backspace to clear. Press Enter or click Submit when ready.</div>
+  <div class="solve-controls" id="solve-controls">
+    <button class="btn btn-green btn-small" id="solve-submit">Submit</button>
+    <button class="btn btn-red btn-small" id="solve-cancel">Cancel</button>
   </div>
 </div>
 
@@ -114,7 +112,7 @@
       <ul>
         <li><strong>Spin the Wheel</strong> — Land on a dollar amount, then guess a consonant. If the letter is in the puzzle, you earn that dollar amount for each occurrence and your turn continues.</li>
         <li><strong>Buy a Vowel ($250)</strong> — Spend $250 from your round earnings to guess a vowel (A, E, I, O, U). If correct, your turn continues.</li>
-        <li><strong>Solve the Puzzle</strong> — At any point during your turn, try to guess the full phrase. Get it right and you win the round!</li>
+        <li><strong>Solve the Puzzle</strong> — At any point during your turn, fill in the missing letters directly on the board. Type to fill blanks, Backspace to erase, Enter to submit. Get it right and you win the round!</li>
       </ul>
 
       <h3>Special Wheel Spaces</h3>
