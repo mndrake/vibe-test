@@ -388,7 +388,38 @@ body {
 
 @media (max-width: 600px) {
   .tile { width: 28px; height: 36px; font-size: 1rem; }
+  .tile.space { width: 14px; }
   .wheel-container { width: 300px; height: 300px; }
   #wheel-canvas { width: 300px; height: 300px; }
   .player-card { min-width: 140px; padding: .5rem .75rem; }
+
+  /* When keyboard is showing on mobile, collapse to puzzle + keyboard only */
+  #game-screen.keyboard-active .wheel-area { display: none; }
+  #game-screen.keyboard-active .scoreboard { display: none; }
+  #game-screen.keyboard-active .used-letters { display: none; }
+  #game-screen.keyboard-active .round-banner { display: none; }
+  #game-screen.keyboard-active .puzzle-board {
+    margin-bottom: .5rem;
+    padding: .75rem .5rem;
+    min-height: auto;
+  }
+  #game-screen.keyboard-active .category-bar {
+    margin-bottom: .4rem;
+    font-size: .95rem;
+  }
+  #game-screen.keyboard-active .message-log {
+    margin-bottom: .4rem;
+    font-size: .9rem;
+    min-height: auto;
+  }
+  #game-screen.keyboard-active .letter-keyboard {
+    gap: 3px;
+    margin-bottom: .5rem;
+  }
+  #game-screen.keyboard-active .key-btn {
+    width: 32px;
+    height: 34px;
+    font-size: .85rem;
+  }
+  #game-screen.keyboard-active { padding-top: .5rem; }
 }

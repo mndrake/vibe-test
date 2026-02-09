@@ -508,6 +508,10 @@ function setMessage(msg) {
 /* ═══════════════════════════════════════════════════════
    CONTROL STATE
    ═══════════════════════════════════════════════════════ */
+function syncKeyboardActive() {
+  gameScreen.classList.toggle('keyboard-active', keyboard.classList.contains('visible'));
+}
+
 function setControlState(state) {
   keyboard.classList.remove('visible');
   solveControls.classList.remove('visible');
@@ -545,6 +549,7 @@ function setControlState(state) {
     if (inputMode === 'solve') exitSolveMode();
     inputMode = null;
   }
+  syncKeyboardActive();
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -569,6 +574,7 @@ function enterSolveMode() {
   solveControls.classList.add('visible');
   solveHint.classList.add('visible');
   keyboard.classList.add('visible');
+  syncKeyboardActive();
   updateKeyboard();
   renderBoard();
   document.addEventListener('keydown', solveKeyHandler);
@@ -581,6 +587,7 @@ function exitSolveMode() {
   solveControls.classList.remove('visible');
   solveHint.classList.remove('visible');
   keyboard.classList.remove('visible');
+  syncKeyboardActive();
   document.removeEventListener('keydown', solveKeyHandler);
   renderBoard();
 }
@@ -849,6 +856,7 @@ function guessConsonant(letter) {
   usedLetters.add(letter);
   updateUsedLetters();
   keyboard.classList.remove('visible');
+  syncKeyboardActive();
 
   const cp = players[currentPlayerIdx];
   const count = countLetterInPuzzle(letter);
@@ -893,6 +901,7 @@ function guessVowel(letter) {
   usedLetters.add(letter);
   updateUsedLetters();
   keyboard.classList.remove('visible');
+  syncKeyboardActive();
 
   const count = countLetterInPuzzle(letter);
   if (count > 0) {
