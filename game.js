@@ -256,18 +256,36 @@ function buildKeyboard() {
 function updateKeyboard() {
   keyboard.querySelectorAll('.key-btn').forEach(btn => {
     const letter = btn.dataset.letter;
-    btn.disabled = usedLetters.has(letter);
 
-    if (inputMode === 'consonant' || inputMode === 'free_consonant') {
-      btn.disabled = btn.disabled || VOWELS.has(letter);
-    } else if (inputMode === 'vowel') {
-      btn.disabled = btn.disabled || !VOWELS.has(letter);
+    if (inputMode === 'solve') {
+      // In solve mode all letters are available
+      btn.disabled = false;
+    } else {
+      btn.disabled = usedLetters.has(letter);
+
+      if (inputMode === 'consonant' || inputMode === 'free_consonant') {
+        btn.disabled = btn.disabled || VOWELS.has(letter);
+      } else if (inputMode === 'vowel') {
+        btn.disabled = btn.disabled || !VOWELS.has(letter);
+      }
     }
   });
 }
 
 function onKeyboardClick(letter) {
-  if (!inputMode || inputMode === 'solve') return;
+  if (!inputMode) return;
+
+  if (inputMode === 'solve') {
+    // In solve mode, clicking a letter fills the current blank tile
+    if (solveTileIndices.length === 0) return;
+    const tileIdx = solveTileIndices[solveCursorPos];
+    solveGuesses[tileIdx] = letter;
+    if (solveCursorPos < solveTileIndices.length - 1) {
+      solveCursorPos++;
+    }
+    renderBoard();
+    return;
+  }
 
   if (inputMode === 'vowel') {
     if (!VOWELS.has(letter) || usedLetters.has(letter)) return;
@@ -550,6 +568,8 @@ function enterSolveMode() {
 
   solveControls.classList.add('visible');
   solveHint.classList.add('visible');
+  keyboard.classList.add('visible');
+  updateKeyboard();
   renderBoard();
   document.addEventListener('keydown', solveKeyHandler);
 }
@@ -560,6 +580,7 @@ function exitSolveMode() {
   solveCursorPos = 0;
   solveControls.classList.remove('visible');
   solveHint.classList.remove('visible');
+  keyboard.classList.remove('visible');
   document.removeEventListener('keydown', solveKeyHandler);
   renderBoard();
 }
