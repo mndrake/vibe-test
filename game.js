@@ -258,8 +258,8 @@ function updateKeyboard() {
     const letter = btn.dataset.letter;
 
     if (inputMode === 'solve') {
-      // In solve mode all letters are available
-      btn.disabled = false;
+      // In solve mode, disable letters already revealed on the board
+      btn.disabled = revealedLetters.has(letter);
     } else {
       btn.disabled = usedLetters.has(letter);
 
