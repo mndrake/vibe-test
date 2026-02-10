@@ -157,6 +157,12 @@ body {
   flex-wrap: wrap;
 }
 
+.word-group {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
 .tile {
   width: 38px;
   height: 46px;

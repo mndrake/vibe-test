@@ -408,6 +408,8 @@ function renderBoard() {
         space.className = 'tile space';
         rowEl.appendChild(space);
       }
+      const wordGroup = document.createElement('span');
+      wordGroup.className = 'word-group';
       for (const ch of word) {
         const tile = document.createElement('div');
         if (/[A-Z]/.test(ch)) {
@@ -442,8 +444,9 @@ function renderBoard() {
           tile.className = 'tile punct';
           tile.textContent = ch;
         }
-        rowEl.appendChild(tile);
+        wordGroup.appendChild(tile);
       }
+      rowEl.appendChild(wordGroup);
     });
     puzzleBoard.appendChild(rowEl);
   });
