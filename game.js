@@ -232,6 +232,110 @@ const PUZZLES = [
 ];
 
 /* ═══════════════════════════════════════════════════════
+   SOUND EFFECTS (AudioContext — no audio files)
+   ═══════════════════════════════════════════════════════ */
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playTone(freq, duration, type = 'sine', volume = 0.15) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.value = volume;
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch (e) { /* audio not supported */ }
+}
+
+function sfxDing() { playTone(880, 0.15, 'sine', 0.12); setTimeout(() => playTone(1100, 0.2, 'sine', 0.10), 80); }
+function sfxBuzz() { playTone(150, 0.35, 'sawtooth', 0.10); }
+function sfxBankrupt() {
+  playTone(400, 0.15, 'sawtooth', 0.12);
+  setTimeout(() => playTone(300, 0.15, 'sawtooth', 0.10), 120);
+  setTimeout(() => playTone(200, 0.3, 'sawtooth', 0.08), 240);
+}
+function sfxSolve() {
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.25, 'sine', 0.12), i * 120));
+}
+function sfxTick() { playTone(600, 0.03, 'square', 0.06); }
+function sfxStreak() {
+  [660, 784, 880].forEach((f, i) => setTimeout(() => playTone(f, 0.12, 'sine', 0.10), i * 70));
+}
+function sfxDouble() { playTone(523, 0.1, 'sine', 0.12); setTimeout(() => playTone(1047, 0.2, 'sine', 0.12), 100); }
+
+/* ═══════════════════════════════════════════════════════
+   CONFETTI
+   ═══════════════════════════════════════════════════════ */
+const confettiCanvas = document.getElementById('confetti-canvas');
+const confettiCtx = confettiCanvas.getContext('2d');
+let confettiPieces = [];
+let confettiRunning = false;
+
+function resizeConfetti() {
+  confettiCanvas.width = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeConfetti);
+resizeConfetti();
+
+function launchConfetti() {
+  confettiPieces = [];
+  const colors = ['#e74c3c','#2ecc71','#3498db','#f1c40f','#9b59b6','#e67e22','#ff1493','#1abc9c'];
+  for (let i = 0; i < 150; i++) {
+    confettiPieces.push({
+      x: Math.random() * confettiCanvas.width,
+      y: Math.random() * -confettiCanvas.height,
+      w: 6 + Math.random() * 6,
+      h: 10 + Math.random() * 6,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      vx: (Math.random() - 0.5) * 4,
+      vy: 2 + Math.random() * 4,
+      rot: Math.random() * Math.PI * 2,
+      rv: (Math.random() - 0.5) * 0.2,
+      life: 1,
+    });
+  }
+  if (!confettiRunning) {
+    confettiRunning = true;
+    animateConfetti();
+  }
+}
+
+function animateConfetti() {
+  confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  confettiPieces.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05;
+    p.rot += p.rv;
+    p.life -= 0.003;
+    confettiCtx.save();
+    confettiCtx.translate(p.x, p.y);
+    confettiCtx.rotate(p.rot);
+    confettiCtx.globalAlpha = Math.max(0, p.life);
+    confettiCtx.fillStyle = p.color;
+    confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    confettiCtx.restore();
+  });
+  confettiPieces = confettiPieces.filter(p => p.life > 0 && p.y < confettiCanvas.height + 50);
+  if (confettiPieces.length > 0) {
+    requestAnimationFrame(animateConfetti);
+  } else {
+    confettiRunning = false;
+    confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
    WHEEL SEGMENTS (built dynamically via buildWheelSegments)
    ═══════════════════════════════════════════════════════ */
 let WHEEL_SEGMENTS = [];
@@ -264,13 +368,14 @@ const BANKRUPT_SEGMENT = { label: "BANKRUPT", value: "bankrupt", color: "#1a1a2e
 const LOSE_TURN_SEGMENT = { label: "LOSE\nTURN", value: "lose_turn", color: "#ecf0f1", textColor: "#333" };
 const FREE_PLAY_SEGMENT = { label: "FREE\nPLAY", value: "free_play", color: "#27ae60" };
 const STEAL_SEGMENT = { label: "STEAL", value: "steal", color: "#ff1493" };
+const DOUBLE_SEGMENT = { label: "2x\nDOUBLE", value: "double", color: "#00bcd4", textColor: "#fff" };
 
 function buildWheelSegments(numBankrupts) {
-  // Fixed special segments: lose_turn, free_play, steal
+  // Fixed special segments: lose_turn, free_play, steal, double
   // Variable: 0-4 bankrupt segments
   // Rest filled with dollar segments to reach 24 total
   const totalSlots = 24;
-  const fixedSpecials = 3; // lose_turn + free_play + steal
+  const fixedSpecials = 4; // lose_turn + free_play + steal + double
   const dollarCount = totalSlots - fixedSpecials - numBankrupts;
 
   const dollars = DOLLAR_SEGMENTS.slice(0, dollarCount);
@@ -282,6 +387,7 @@ function buildWheelSegments(numBankrupts) {
   specials.push({ ...LOSE_TURN_SEGMENT });
   specials.push({ ...FREE_PLAY_SEGMENT });
   specials.push({ ...STEAL_SEGMENT });
+  specials.push({ ...DOUBLE_SEGMENT });
 
   // Distribute specials evenly around the wheel
   const spacing = Math.floor(totalSlots / specials.length);
@@ -318,6 +424,9 @@ let cpuDifficulty = 'medium';
 let solveGuesses = {};  // { tileIndex: letter } — user guesses during solve mode
 let solveTileIndices = []; // ordered list of unrevealed tile indices for cursor navigation
 let solveCursorPos = 0; // index into solveTileIndices
+let streak = 0;         // consecutive correct letter guesses for current player
+let doubleActive = false; // true when the next consonant payout is doubled
+const CPU_AVATARS = ['🤖','👾','🎰'];
 
 /* ═══════════════════════════════════════════════════════
    DOM
@@ -350,6 +459,8 @@ const solveHint = $('solve-hint');
 const solveSubmit = $('solve-submit');
 const solveCancel = $('solve-cancel');
 
+const streakDisplay = $('streak-display');
+
 // End
 const endScreen = $('end-screen');
 
@@ -360,6 +471,16 @@ numHumansSelect.addEventListener('change', () => {
   const n = parseInt(numHumansSelect.value);
   playerNameFields.forEach((el, i) => {
     el.classList.toggle('visible', i < n);
+  });
+});
+
+// Avatar picker
+document.querySelectorAll('.avatar-picker').forEach(picker => {
+  picker.addEventListener('click', (e) => {
+    const btn = e.target.closest('.avatar-btn');
+    if (!btn) return;
+    picker.querySelectorAll('.avatar-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
   });
 });
 
@@ -381,10 +502,13 @@ function startGame() {
     if (i < numHumans) {
       const nameInput = $('pname-' + i);
       const name = nameInput.value.trim() || ('Player ' + (i + 1));
-      players.push({ name, cpu: false, roundMoney: 0, totalMoney: 0 });
+      const picker = document.querySelector(`.avatar-picker[data-for="${i}"]`);
+      const selectedBtn = picker.querySelector('.avatar-btn.selected');
+      const avatar = selectedBtn ? selectedBtn.dataset.emoji : '😎';
+      players.push({ name, cpu: false, roundMoney: 0, totalMoney: 0, avatar });
     } else {
       const cpuNames = ['CPU Alice', 'CPU Bob', 'CPU Carol'];
-      players.push({ name: cpuNames[i], cpu: true, roundMoney: 0, totalMoney: 0 });
+      players.push({ name: cpuNames[i], cpu: true, roundMoney: 0, totalMoney: 0, avatar: CPU_AVATARS[i] });
     }
   }
 
@@ -473,6 +597,9 @@ function startRound() {
   currentWheelValue = null;
   inputMode = null;
   currentPlayerIdx = (currentRound - 1) % 3;
+  streak = 0;
+  doubleActive = false;
+  updateStreakDisplay();
 
   puzzle = pickPuzzle();
   roundBanner.textContent = `Round ${currentRound} of ${totalRounds}`;
@@ -504,9 +631,11 @@ function pickPuzzle() {
 }
 
 function nextPlayer() {
+  resetStreak();
   currentPlayerIdx = (currentPlayerIdx + 1) % 3;
   currentWheelValue = null;
   inputMode = null;
+  doubleActive = false;
   renderScoreboard();
   setMessage(`${players[currentPlayerIdx].name}'s turn. Spin the wheel!`);
   setControlState('spin');
@@ -522,15 +651,17 @@ function endGame() {
 
   let maxMoney = -1;
   let winnerName = '';
+  let winnerAvatar = '';
   const scoresHtml = players.map(p => {
     if (p.totalMoney > maxMoney) {
       maxMoney = p.totalMoney;
       winnerName = p.name;
+      winnerAvatar = p.avatar;
     }
-    return `<div>${p.name}: <strong style="color:var(--gold);">$${p.totalMoney.toLocaleString()}</strong></div>`;
+    return `<div>${p.avatar} ${p.name}: <strong style="color:var(--gold);">$${p.totalMoney.toLocaleString()}</strong></div>`;
   }).join('');
 
-  $('winner-text').textContent = `${winnerName} wins with $${maxMoney.toLocaleString()}!`;
+  $('winner-text').textContent = `${winnerAvatar} ${winnerName} wins with $${maxMoney.toLocaleString()}!`;
   $('final-scores').innerHTML = scoresHtml;
 }
 
@@ -642,6 +773,7 @@ function renderScoreboard() {
     const card = document.createElement('div');
     card.className = 'player-card' + (i === currentPlayerIdx ? ' active' : '');
     card.innerHTML = `
+      <div class="avatar">${p.avatar}</div>
       <div class="name">${p.name}${p.cpu ? '<span class="cpu-badge">CPU</span>' : ''}</div>
       <div class="round-money">$${p.roundMoney.toLocaleString()}</div>
       <div class="total-label">Total Winnings</div>
@@ -667,6 +799,35 @@ function updateUsedLetters() {
    ═══════════════════════════════════════════════════════ */
 function setMessage(msg) {
   messageLog.textContent = msg;
+}
+
+/* ═══════════════════════════════════════════════════════
+   STREAK DISPLAY
+   ═══════════════════════════════════════════════════════ */
+function updateStreakDisplay() {
+  if (streak >= 2) {
+    const fires = '🔥'.repeat(Math.min(streak, 8));
+    streakDisplay.innerHTML = `<span class="streak-fire">${fires} ${streak} in a row! ${fires}</span>`;
+  } else {
+    streakDisplay.innerHTML = '';
+  }
+}
+
+function awardStreakBonus() {
+  if (streak >= 3) {
+    const bonus = streak * 500;
+    const cp = players[currentPlayerIdx];
+    cp.roundMoney += bonus;
+    sfxStreak();
+    setMessage(`${cp.name} streak bonus! ${streak} in a row = +$${bonus.toLocaleString()}!`);
+    renderScoreboard();
+  }
+}
+
+function resetStreak() {
+  if (streak >= 3) awardStreakBonus();
+  streak = 0;
+  updateStreakDisplay();
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -905,6 +1066,7 @@ function spinWheel() {
   const duration = 3000 + Math.random() * 1500;
   const startTime = performance.now();
   const startAngle = wheelAngle;
+  let lastTickSeg = -1;
 
   function easeOut(t) {
     return 1 - Math.pow(1 - t, 3);
@@ -916,6 +1078,17 @@ function spinWheel() {
     const eased = easeOut(t);
     wheelAngle = startAngle + totalAngle * eased;
     drawWheel(wheelAngle);
+
+    // Tick sound when crossing segment boundaries
+    const numSeg = WHEEL_SEGMENTS.length;
+    const arcSize = (2 * Math.PI) / numSeg;
+    let normAngle = wheelAngle % (2 * Math.PI);
+    if (normAngle < 0) normAngle += 2 * Math.PI;
+    const currentSeg = Math.floor(normAngle / arcSize) % numSeg;
+    if (currentSeg !== lastTickSeg) {
+      lastTickSeg = currentSeg;
+      sfxTick();
+    }
 
     if (t < 1) {
       requestAnimationFrame(animate);
@@ -942,13 +1115,24 @@ function onWheelStopped() {
   const cp = players[currentPlayerIdx];
 
   if (segment.value === 'bankrupt') {
+    sfxBankrupt();
     setMessage(`${cp.name} hit BANKRUPT! Lost $${cp.roundMoney.toLocaleString()}.`);
     cp.roundMoney = 0;
     renderScoreboard();
     setTimeout(() => nextPlayer(), 1800);
   } else if (segment.value === 'lose_turn') {
+    sfxBuzz();
     setMessage(`${cp.name} hit LOSE A TURN!`);
     setTimeout(() => nextPlayer(), 1800);
+  } else if (segment.value === 'double') {
+    sfxDouble();
+    doubleActive = true;
+    setMessage(`${cp.name} landed on 2x DOUBLE! Next correct consonant pays double! Pick a consonant.`);
+    if (cp.cpu) {
+      setTimeout(() => cpuPickConsonant(), 1200);
+    } else {
+      setControlState('pick_consonant');
+    }
   } else if (segment.value === 'steal') {
     handleSteal(cp);
   } else if (segment.value === 'free_play') {
@@ -1027,12 +1211,19 @@ function guessConsonant(letter) {
   const isFree = inputMode === 'free_consonant';
 
   if (count > 0) {
-    const amount = (typeof currentWheelValue === 'number') ? currentWheelValue * count : 500 * count;
+    let multiplier = 1;
+    if (doubleActive) { multiplier = 2; doubleActive = false; }
+    const baseAmount = (typeof currentWheelValue === 'number') ? currentWheelValue * count : 500 * count;
+    const amount = baseAmount * multiplier;
     cp.roundMoney += amount;
     revealLetter(letter);
     renderBoard();
     renderScoreboard();
-    setMessage(`${cp.name}: "${letter}" appears ${count} time${count > 1 ? 's' : ''}! +$${amount.toLocaleString()}`);
+    sfxDing();
+    streak++;
+    updateStreakDisplay();
+    const doubleLabel = multiplier > 1 ? ' (2x DOUBLED!)' : '';
+    setMessage(`${cp.name}: "${letter}" appears ${count} time${count > 1 ? 's' : ''}! +$${amount.toLocaleString()}${doubleLabel}`);
 
     if (isPuzzleSolved()) {
       puzzleSolvedBy(currentPlayerIdx);
@@ -1045,14 +1236,17 @@ function guessConsonant(letter) {
       if (cp.cpu) scheduleCpuTurn();
     }, 1400);
   } else {
+    sfxBuzz();
     if (isFree) {
       setMessage(`${cp.name}: "${letter}" is not in the puzzle, but it's a FREE PLAY — no penalty!`);
+      // Wrong guess on free play doesn't break streak
       setTimeout(() => {
         setMessage(`${cp.name}'s turn continues. Spin, buy a vowel, or solve!`);
         setControlState('spin');
         if (cp.cpu) scheduleCpuTurn();
       }, 1400);
     } else {
+      doubleActive = false;
       setMessage(`${cp.name}: "${letter}" is not in the puzzle.`);
       setTimeout(() => nextPlayer(), 1400);
     }
@@ -1072,6 +1266,9 @@ function guessVowel(letter) {
     revealLetter(letter);
     renderBoard();
     renderScoreboard();
+    sfxDing();
+    streak++;
+    updateStreakDisplay();
     setMessage(`${cp.name}: "${letter}" appears ${count} time${count > 1 ? 's' : ''}!`);
 
     if (isPuzzleSolved()) {
@@ -1084,6 +1281,7 @@ function guessVowel(letter) {
       if (cp.cpu) scheduleCpuTurn();
     }, 1400);
   } else {
+    sfxBuzz();
     renderScoreboard();
     setMessage(`${cp.name}: "${letter}" is not in the puzzle. -$250.`);
     setTimeout(() => nextPlayer(), 1400);
@@ -1114,12 +1312,19 @@ function attemptSolve(guess) {
 function puzzleSolvedBy(playerIdx) {
   const p = players[playerIdx];
 
+  // Award streak bonus before calculating winnings
+  if (streak >= 3) awardStreakBonus();
+  streak = 0;
+  updateStreakDisplay();
+
   // Award the round winnings — at minimum $1000 for solving the puzzle,
   // or the full accumulated round earnings if higher.
   const roundWinnings = Math.max(p.roundMoney, MINIMUM_ROUND_WIN);
   p.roundMoney = roundWinnings;
   p.totalMoney += roundWinnings;
 
+  sfxSolve();
+  launchConfetti();
   setMessage(`${p.name} solved it! "${puzzle.phrase}" — Won $${roundWinnings.toLocaleString()} this round!`);
   renderScoreboard();
   setControlState('disabled');

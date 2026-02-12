@@ -23,14 +23,47 @@
       <div class="player-name-field visible" data-idx="0">
         <label for="pname-0">Player 1 Name</label>
         <input id="pname-0" type="text" maxlength="14" placeholder="Player 1">
+        <div class="avatar-picker" data-for="0">
+          <span class="avatar-label">Avatar:</span>
+          <button class="avatar-btn selected" data-emoji="😎">😎</button>
+          <button class="avatar-btn" data-emoji="🦊">🦊</button>
+          <button class="avatar-btn" data-emoji="🚀">🚀</button>
+          <button class="avatar-btn" data-emoji="🎸">🎸</button>
+          <button class="avatar-btn" data-emoji="🌟">🌟</button>
+          <button class="avatar-btn" data-emoji="🐉">🐉</button>
+          <button class="avatar-btn" data-emoji="🎯">🎯</button>
+          <button class="avatar-btn" data-emoji="🦄">🦄</button>
+        </div>
       </div>
       <div class="player-name-field" data-idx="1">
         <label for="pname-1">Player 2 Name</label>
         <input id="pname-1" type="text" maxlength="14" placeholder="Player 2">
+        <div class="avatar-picker" data-for="1">
+          <span class="avatar-label">Avatar:</span>
+          <button class="avatar-btn selected" data-emoji="🐸">🐸</button>
+          <button class="avatar-btn" data-emoji="👻">👻</button>
+          <button class="avatar-btn" data-emoji="🎮">🎮</button>
+          <button class="avatar-btn" data-emoji="🌈">🌈</button>
+          <button class="avatar-btn" data-emoji="🦈">🦈</button>
+          <button class="avatar-btn" data-emoji="🎪">🎪</button>
+          <button class="avatar-btn" data-emoji="⚡">⚡</button>
+          <button class="avatar-btn" data-emoji="🍕">🍕</button>
+        </div>
       </div>
       <div class="player-name-field" data-idx="2">
         <label for="pname-2">Player 3 Name</label>
         <input id="pname-2" type="text" maxlength="14" placeholder="Player 3">
+        <div class="avatar-picker" data-for="2">
+          <span class="avatar-label">Avatar:</span>
+          <button class="avatar-btn selected" data-emoji="🐼">🐼</button>
+          <button class="avatar-btn" data-emoji="🔥">🔥</button>
+          <button class="avatar-btn" data-emoji="🎵">🎵</button>
+          <button class="avatar-btn" data-emoji="🏆">🏆</button>
+          <button class="avatar-btn" data-emoji="🦁">🦁</button>
+          <button class="avatar-btn" data-emoji="🎃">🎃</button>
+          <button class="avatar-btn" data-emoji="💎">💎</button>
+          <button class="avatar-btn" data-emoji="🐶">🐶</button>
+        </div>
       </div>
     </div>
 
@@ -72,6 +105,8 @@
   <div class="category-bar">Category: <strong id="category-label">???</strong></div>
 
   <div class="puzzle-board" id="puzzle-board"></div>
+
+  <div class="streak-display" id="streak-display"></div>
 
   <div class="used-letters" id="used-letters"></div>
 
@@ -128,7 +163,11 @@
         <li><strong>Lose a Turn</strong> — Your turn ends but you keep your money.</li>
         <li><strong>Free Play</strong> — Guess any consonant with no penalty if it's wrong.</li>
         <li><strong>Steal</strong> — Take half the round money from the richest opponent. If you're the richest, you take from the second richest. If no one else has money, you get $300.</li>
+        <li><strong>2x Double</strong> — Your next correct consonant guess earns double the wheel value!</li>
       </ul>
+
+      <h3>Streak Bonus</h3>
+      <p>Guess 3 or more correct letters in a row and earn a streak bonus! You get $500 for each letter in your streak when it ends.</p>
 
       <h3>Winning a Round</h3>
       <p>The player who solves the puzzle wins their accumulated round earnings (minimum $1,000). That amount is added to their total winnings. All players' round money resets for the next round.</p>
@@ -140,6 +179,7 @@
   </div>
 </div>
 
+<canvas id="confetti-canvas"></canvas>
 <script src="game.js"></script>
 </body>
 </html>
