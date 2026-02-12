@@ -314,6 +314,7 @@ let inputMode = null; // null | 'consonant' | 'vowel' | 'solve' | 'free_consonan
 let usedPuzzleIndices = new Set();
 let cpuThinking = false;
 let numBankrupts = 2;
+let cpuDifficulty = 'medium';
 let solveGuesses = {};  // { tileIndex: letter } — user guesses during solve mode
 let solveTileIndices = []; // ordered list of unrevealed tile indices for cursor navigation
 let solveCursorPos = 0; // index into solveTileIndices
@@ -372,6 +373,7 @@ function startGame() {
   const numHumans = parseInt(numHumansSelect.value);
   totalRounds = parseInt(numRoundsSelect.value);
   numBankrupts = parseInt($('num-bankrupts').value);
+  cpuDifficulty = $('cpu-difficulty').value;
   buildWheelSegments(numBankrupts);
   players = [];
 
@@ -1158,6 +1160,76 @@ solveCancel.addEventListener('click', () => {
 /* ═══════════════════════════════════════════════════════
    CPU / AI PLAYER LOGIC
    ═══════════════════════════════════════════════════════ */
+const CPU_DIFFICULTY_PROFILES = {
+  easy: {
+    // Rarely tries to solve, poor letter picks, low accuracy
+    solveThresholds: [
+      { minRatio: 0.90, chance: 0.30 },
+      { minRatio: 0.75, chance: 0.10 },
+      { minRatio: 0.50, chance: 0.03 },
+      { minRatio: 0.00, chance: 0.01 },
+    ],
+    correctSolveThresholds: [
+      { minRatio: 0.90, chance: 0.50 },
+      { minRatio: 0.75, chance: 0.25 },
+      { minRatio: 0.60, chance: 0.10 },
+      { minRatio: 0.40, chance: 0.05 },
+      { minRatio: 0.00, chance: 0.02 },
+    ],
+    smartPickChance: 0.30,   // chance of picking a frequent consonant
+    vowelKnowChance: 0.25,  // chance of picking a vowel in the puzzle
+    vowelBuyChance: 0.15,   // chance of choosing to buy a vowel
+  },
+  medium: {
+    solveThresholds: [
+      { minRatio: 0.85, chance: 0.60 },
+      { minRatio: 0.70, chance: 0.30 },
+      { minRatio: 0.50, chance: 0.10 },
+      { minRatio: 0.00, chance: 0.02 },
+    ],
+    correctSolveThresholds: [
+      { minRatio: 0.90, chance: 0.85 },
+      { minRatio: 0.75, chance: 0.55 },
+      { minRatio: 0.60, chance: 0.35 },
+      { minRatio: 0.40, chance: 0.15 },
+      { minRatio: 0.00, chance: 0.05 },
+    ],
+    smartPickChance: 0.55,
+    vowelKnowChance: 0.50,
+    vowelBuyChance: 0.25,
+  },
+  hard: {
+    // Aggressively solves, near-optimal letter picks, high accuracy
+    solveThresholds: [
+      { minRatio: 0.70, chance: 0.80 },
+      { minRatio: 0.50, chance: 0.45 },
+      { minRatio: 0.30, chance: 0.15 },
+      { minRatio: 0.00, chance: 0.05 },
+    ],
+    correctSolveThresholds: [
+      { minRatio: 0.90, chance: 0.98 },
+      { minRatio: 0.75, chance: 0.80 },
+      { minRatio: 0.60, chance: 0.60 },
+      { minRatio: 0.40, chance: 0.35 },
+      { minRatio: 0.00, chance: 0.15 },
+    ],
+    smartPickChance: 0.85,
+    vowelKnowChance: 0.80,
+    vowelBuyChance: 0.35,
+  },
+};
+
+function getDifficultyProfile() {
+  return CPU_DIFFICULTY_PROFILES[cpuDifficulty] || CPU_DIFFICULTY_PROFILES.medium;
+}
+
+function getThresholdChance(thresholds, ratio) {
+  for (const t of thresholds) {
+    if (ratio >= t.minRatio) return t.chance;
+  }
+  return 0;
+}
+
 const CPU_DELAY_MIN = 1200;
 const CPU_DELAY_MAX = 2500;
 
@@ -1176,6 +1248,7 @@ function scheduleCpuTurn() {
 
 function cpuTakeTurn() {
   const cp = players[currentPlayerIdx];
+  const profile = getDifficultyProfile();
 
   // Decide: solve, buy vowel, or spin
   const unrevealedCount = puzzle.phrase.replace(/[^A-Z]/g, '').split('').filter(c => !revealedLetters.has(c)).length;
@@ -1183,7 +1256,7 @@ function cpuTakeTurn() {
   const revealedRatio = (totalLetterCount - unrevealedCount) / totalLetterCount;
 
   // CPU solve chance increases as more letters are revealed
-  const solveChance = revealedRatio > 0.85 ? 0.6 : revealedRatio > 0.7 ? 0.3 : revealedRatio > 0.5 ? 0.1 : 0.02;
+  const solveChance = getThresholdChance(profile.solveThresholds, revealedRatio);
 
   if (Math.random() < solveChance) {
     cpuAttemptSolve();
@@ -1192,7 +1265,7 @@ function cpuTakeTurn() {
 
   // Buy vowel?
   const hasUnusedVowels = [...VOWELS].some(v => !usedLetters.has(v) && puzzle.phrase.includes(v));
-  if (cp.roundMoney >= 250 && hasUnusedVowels && Math.random() < 0.25) {
+  if (cp.roundMoney >= 250 && hasUnusedVowels && Math.random() < profile.vowelBuyChance) {
     cpuBuyVowel();
     return;
   }
@@ -1214,10 +1287,10 @@ function cpuPickConsonant() {
 
   // Smart pick: prefer consonants that are common in English, with some randomness
   const frequency = 'RSTLNDHCMPBGFWYVKJXQZ';
+  const profile = getDifficultyProfile();
   let pick = null;
 
-  // 55% chance of picking a good (frequent) letter, 45% random
-  if (Math.random() < 0.55) {
+  if (Math.random() < profile.smartPickChance) {
     for (const c of frequency) {
       if (available.includes(c)) {
         pick = c;
@@ -1256,10 +1329,11 @@ function cpuBuyVowel() {
   const availableVowels = [...VOWELS].filter(v => !usedLetters.has(v));
   if (availableVowels.length === 0) return;
 
-  // Prefer vowels that are in the puzzle (50% chance of "knowing")
+  // Prefer vowels that are in the puzzle
+  const profile = getDifficultyProfile();
   let pick;
   const vowelsInPuzzle = availableVowels.filter(v => puzzle.phrase.includes(v));
-  if (vowelsInPuzzle.length > 0 && Math.random() < 0.50) {
+  if (vowelsInPuzzle.length > 0 && Math.random() < profile.vowelKnowChance) {
     pick = vowelsInPuzzle[Math.floor(Math.random() * vowelsInPuzzle.length)];
   } else {
     pick = availableVowels[Math.floor(Math.random() * availableVowels.length)];
@@ -1274,17 +1348,13 @@ function cpuBuyVowel() {
 
 function cpuAttemptSolve() {
   const cp = players[currentPlayerIdx];
+  const profile = getDifficultyProfile();
   const unrevealedCount = puzzle.phrase.replace(/[^A-Z]/g, '').split('').filter(c => !revealedLetters.has(c)).length;
   const totalLetterCount = puzzle.phrase.replace(/[^A-Z]/g, '').length;
   const revealedRatio = (totalLetterCount - unrevealedCount) / totalLetterCount;
 
-  // Chance of getting it right depends on how many letters are revealed
-  let correctChance;
-  if (revealedRatio >= 0.9) correctChance = 0.85;
-  else if (revealedRatio >= 0.75) correctChance = 0.55;
-  else if (revealedRatio >= 0.6) correctChance = 0.35;
-  else if (revealedRatio >= 0.4) correctChance = 0.15;
-  else correctChance = 0.05;
+  // Chance of getting it right depends on difficulty and how many letters are revealed
+  const correctChance = getThresholdChance(profile.correctSolveThresholds, revealedRatio);
 
   setMessage(`${cp.name} wants to solve the puzzle...`);
 
