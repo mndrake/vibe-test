@@ -445,40 +445,131 @@ body {
 .modal-content li strong { color: var(--white); }
 .modal-content .btn { display: block; margin: 1.25rem auto 0; }
 
-@media (max-width: 600px) {
-  .tile { width: 28px; height: 36px; font-size: 1rem; }
-  .tile.space { width: 14px; }
-  .wheel-container { width: 300px; height: 300px; }
-  #wheel-canvas { width: 300px; height: 300px; }
-  .player-card { min-width: 140px; padding: .5rem .75rem; }
+/* ── iPad / small laptops ── */
+@media (max-width: 1024px) {
+  .wheel-container { width: 340px; height: 340px; }
+  #wheel-canvas { width: 340px; height: 340px; }
+  #game-screen { padding: .75rem 1rem 1.5rem; }
+  .player-card { min-width: 150px; padding: .6rem 1rem; }
+  .player-card .avatar { font-size: 1.5rem; }
+  .player-card .round-money { font-size: 1.2rem; }
+  .scoreboard { gap: .6rem; margin-bottom: .75rem; }
+}
 
-  /* When keyboard is showing on mobile, collapse to puzzle + keyboard only */
+/* ── Tablets portrait / large phones ── */
+@media (max-width: 768px) {
+  #setup-screen h1 { font-size: 2.2rem; }
+  #setup-screen h1 span { font-size: 1rem; }
+  .setup-box { padding: 1.25rem; }
+  .wheel-container { width: 280px; height: 280px; }
+  #wheel-canvas { width: 280px; height: 280px; }
+  .tile { width: 32px; height: 40px; font-size: 1.1rem; }
+  .tile.space { width: 16px; }
+  .puzzle-board { padding: 1rem .75rem; margin-bottom: .75rem; min-height: auto; }
+  .player-card { min-width: 120px; padding: .5rem .6rem; }
+  .player-card .avatar { font-size: 1.3rem; }
+  .player-card .name { font-size: .9rem; }
+  .player-card .round-money { font-size: 1.1rem; }
+  .player-card .total-money { font-size: .85rem; }
+  .player-card .total-label { font-size: .65rem; }
+  .controls { gap: .4rem; }
+  .btn { padding: .6rem 1.2rem; font-size: 1rem; }
+  .btn-small { padding: .45rem .9rem; font-size: .85rem; }
+  .message-log { font-size: .9rem; min-height: 1.6rem; }
+  .category-bar { font-size: 1rem; margin-bottom: .5rem; }
+  .round-banner { font-size: .8rem; margin-bottom: .4rem; }
+  .streak-display { font-size: 1rem; min-height: 1.4em; }
+}
+
+/* ── Phone screens ── */
+@media (max-width: 480px) {
+  #setup-screen { padding: 1rem; min-height: auto; }
+  #setup-screen h1 { font-size: 1.8rem; }
+  .setup-box { padding: 1rem; margin-top: 1rem; }
+  #game-screen { padding: .5rem .5rem 1rem; }
+  .wheel-container { width: 220px; height: 220px; }
+  #wheel-canvas { width: 220px; height: 220px; }
+  .wheel-pointer { top: -10px; border-left-width: 10px; border-right-width: 10px; border-top-width: 22px; }
+  .tile { width: 26px; height: 34px; font-size: .95rem; }
+  .tile.space { width: 12px; }
+  .word-group { gap: 3px; }
+  .puzzle-row { gap: 3px; }
+  .puzzle-board { padding: .75rem .5rem; gap: 4px; border-width: 3px; }
+  .scoreboard { gap: .4rem; margin-bottom: .5rem; }
+  .player-card { min-width: 95px; padding: .4rem .5rem; border-radius: 8px; }
+  .player-card .avatar { font-size: 1.1rem; margin-bottom: 0; }
+  .player-card .name { font-size: .78rem; }
+  .player-card .name .cpu-badge { font-size: .6rem; padding: 0 4px; }
+  .player-card .round-money { font-size: 1rem; }
+  .player-card .total-label { font-size: .6rem; }
+  .player-card .total-money { font-size: .75rem; }
+  .controls { gap: .3rem; }
+  .btn { padding: .5rem 1rem; font-size: .9rem; }
+  .btn-small { padding: .4rem .7rem; font-size: .8rem; }
+  .key-btn { width: 34px; height: 36px; font-size: .9rem; }
+  .letter-keyboard { gap: 4px; max-width: 100%; }
+  .message-log { font-size: .85rem; margin-bottom: .3rem; }
+  .category-bar { font-size: .9rem; margin-bottom: .4rem; }
+  .round-banner { font-size: .75rem; }
+  .streak-display { font-size: .9rem; }
+  .used-letters { font-size: .75rem; margin-bottom: .4rem; }
+  .wheel-area { gap: .5rem; margin-bottom: .75rem; }
+  .solve-hint { font-size: .8rem; }
+  .avatar-btn { width: 32px; height: 32px; font-size: 1rem; }
+  .avatar-picker { gap: 3px; margin-bottom: .75rem; }
+  .avatar-label { font-size: .75rem; }
+  .modal-content { padding: 1.25rem; max-height: 85vh; }
+  .modal-content h2 { font-size: 1.4rem; }
+  .modal-content h3 { font-size: .95rem; }
+  .modal-content p, .modal-content li { font-size: .85rem; }
+}
+
+/* ── Keyboard-active: collapse to puzzle + keyboard on mobile ── */
+@media (max-width: 768px) {
   #game-screen.keyboard-active .wheel-area { display: none; }
   #game-screen.keyboard-active .scoreboard { display: none; }
   #game-screen.keyboard-active .used-letters { display: none; }
   #game-screen.keyboard-active .round-banner { display: none; }
+  #game-screen.keyboard-active .streak-display { display: none; }
+  #game-screen.keyboard-active { padding-top: .4rem; }
   #game-screen.keyboard-active .puzzle-board {
-    margin-bottom: .5rem;
-    padding: .75rem .5rem;
+    margin-bottom: .4rem;
+    padding: .6rem .5rem;
     min-height: auto;
   }
   #game-screen.keyboard-active .category-bar {
-    margin-bottom: .4rem;
-    font-size: .95rem;
+    margin-bottom: .3rem;
+    font-size: .85rem;
   }
   #game-screen.keyboard-active .message-log {
-    margin-bottom: .4rem;
-    font-size: .9rem;
+    margin-bottom: .3rem;
+    font-size: .85rem;
     min-height: auto;
   }
   #game-screen.keyboard-active .letter-keyboard {
     gap: 3px;
-    margin-bottom: .5rem;
+    margin-bottom: .4rem;
   }
   #game-screen.keyboard-active .key-btn {
-    width: 32px;
-    height: 34px;
-    font-size: .85rem;
+    width: 30px;
+    height: 32px;
+    font-size: .82rem;
   }
-  #game-screen.keyboard-active { padding-top: .5rem; }
+}
+
+/* ── Very small screens: even tighter keyboard-active layout ── */
+@media (max-width: 380px) {
+  .tile { width: 22px; height: 30px; font-size: .85rem; border-width: 1.5px; }
+  .tile.space { width: 10px; }
+  .word-group { gap: 2px; }
+  .puzzle-row { gap: 2px; }
+  #game-screen.keyboard-active .key-btn {
+    width: 26px;
+    height: 28px;
+    font-size: .75rem;
+    border-radius: 4px;
+    border-width: 1.5px;
+  }
+  #game-screen.keyboard-active .letter-keyboard { gap: 2px; }
+  .puzzle-board { padding: .5rem .4rem; gap: 3px; }
 }

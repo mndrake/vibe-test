@@ -237,8 +237,19 @@ const PUZZLES = [
 let audioCtx = null;
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
+
+// iOS/Safari require AudioContext creation during a user gesture.
+// Eagerly init on first tap/click so sounds work on the very next interaction.
+function initAudioOnGesture() {
+  getAudioCtx();
+  document.removeEventListener('touchstart', initAudioOnGesture, true);
+  document.removeEventListener('click', initAudioOnGesture, true);
+}
+document.addEventListener('touchstart', initAudioOnGesture, true);
+document.addEventListener('click', initAudioOnGesture, true);
 
 function playTone(freq, duration, type = 'sine', volume = 0.15) {
   try {
