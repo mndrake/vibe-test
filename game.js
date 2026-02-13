@@ -271,6 +271,9 @@ function unlockAudio() {
   document.removeEventListener('touchstart', unlockAudio, true);
   document.removeEventListener('touchend', unlockAudio, true);
   document.removeEventListener('click', unlockAudio, true);
+  // Hide the "tap for music" hint
+  const hint = document.getElementById('tap-hint');
+  if (hint) hint.classList.add('hidden');
   // Start theme if we're on the setup or end screen (not mid-game)
   if (gameScreen.style.display !== 'block') {
     playTheme();
@@ -279,6 +282,9 @@ function unlockAudio() {
 document.addEventListener('touchstart', unlockAudio, true);
 document.addEventListener('touchend', unlockAudio, true);
 document.addEventListener('click', unlockAudio, true);
+
+// Attempt auto-play on page load (most browsers block this, but some allow it)
+try { unlockAudio(); } catch (e) {}
 
 function playTone(freq, duration, type = 'sine', volume = 0.15) {
   if (!audioUnlocked) return; // don't attempt before user gesture
