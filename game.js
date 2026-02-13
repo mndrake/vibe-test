@@ -251,12 +251,14 @@ const SILENT_MP3 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Lj
 
 function unlockAudio() {
   if (audioUnlocked) return;
+  audioUnlocked = true; // set first so playTone works in scheduled callbacks
   try {
     // 1) Play silent MP3 via <audio> to switch iOS audio session to "playback"
     const a = new Audio(SILENT_MP3);
     a.setAttribute('playsinline', '');
     a.play().catch(() => {});
-
+  } catch (e) { /* Audio element not supported */ }
+  try {
     // 2) Resume AudioContext and play a silent buffer through it
     const ctx = getAudioCtx();
     if (ctx.state === 'suspended') ctx.resume();
@@ -265,14 +267,14 @@ function unlockAudio() {
     src.buffer = buf;
     src.connect(ctx.destination);
     src.start(0);
-
-    audioUnlocked = true;
-    // Start theme music on setup screen once audio is unlocked
-    playTheme();
-  } catch (e) { /* audio not available */ }
+  } catch (e) { /* AudioContext not supported */ }
   document.removeEventListener('touchstart', unlockAudio, true);
   document.removeEventListener('touchend', unlockAudio, true);
   document.removeEventListener('click', unlockAudio, true);
+  // Start theme if we're on the setup or end screen (not mid-game)
+  if (gameScreen.style.display !== 'block') {
+    playTheme();
+  }
 }
 document.addEventListener('touchstart', unlockAudio, true);
 document.addEventListener('touchend', unlockAudio, true);
@@ -587,6 +589,11 @@ document.querySelectorAll('.avatar-picker').forEach(picker => {
     btn.classList.add('selected');
   });
 });
+
+// Start theme music whenever user interacts with setup screen
+setupScreen.addEventListener('click', () => {
+  if (audioUnlocked && !themePlaying) playTheme();
+}, true);
 
 startBtn.addEventListener('click', startGame);
 $('play-again-btn').addEventListener('click', () => {
