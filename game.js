@@ -235,25 +235,43 @@ const PUZZLES = [
    SOUND EFFECTS (AudioContext — no audio files)
    ═══════════════════════════════════════════════════════ */
 let audioCtx = null;
+let audioUnlocked = false;
+
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
 
-// iOS/Safari require AudioContext creation during a user gesture.
-// Eagerly init on first tap/click so sounds work on the very next interaction.
-function initAudioOnGesture() {
-  getAudioCtx();
-  document.removeEventListener('touchstart', initAudioOnGesture, true);
-  document.removeEventListener('click', initAudioOnGesture, true);
+// iOS Safari keeps AudioContext suspended until a user gesture triggers
+// both a resume() AND routes audio through the output. Playing a silent
+// buffer during a touch/click is the only reliable unlock pattern.
+function unlockAudio() {
+  if (audioUnlocked) return;
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+
+    // Play a tiny silent buffer to force iOS to unlock the audio output
+    const buf = ctx.createBuffer(1, 1, ctx.sampleRate);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+
+    audioUnlocked = true;
+  } catch (e) { /* audio not available */ }
+  document.removeEventListener('touchstart', unlockAudio, true);
+  document.removeEventListener('touchend', unlockAudio, true);
+  document.removeEventListener('click', unlockAudio, true);
 }
-document.addEventListener('touchstart', initAudioOnGesture, true);
-document.addEventListener('click', initAudioOnGesture, true);
+document.addEventListener('touchstart', unlockAudio, true);
+document.addEventListener('touchend', unlockAudio, true);
+document.addEventListener('click', unlockAudio, true);
 
 function playTone(freq, duration, type = 'sine', volume = 0.15) {
   try {
     const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = type;
