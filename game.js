@@ -267,6 +267,8 @@ function unlockAudio() {
     src.start(0);
 
     audioUnlocked = true;
+    // Start theme music on setup screen once audio is unlocked
+    playTheme();
   } catch (e) { /* audio not available */ }
   document.removeEventListener('touchstart', unlockAudio, true);
   document.removeEventListener('touchend', unlockAudio, true);
@@ -309,6 +311,70 @@ function sfxStreak() {
   [660, 784, 880].forEach((f, i) => setTimeout(() => playTone(f, 0.12, 'sine', 0.10), i * 70));
 }
 function sfxDouble() { playTone(523, 0.1, 'sine', 0.12); setTimeout(() => playTone(1047, 0.2, 'sine', 0.12), 100); }
+
+/* ═══════════════════════════════════════════════════════
+   THEME MUSIC (looping game-show melody)
+   ═══════════════════════════════════════════════════════ */
+let themeTimeout = null;
+let themePlaying = false;
+
+// A bouncy Wheel-of-Fortune-inspired melody.
+// Each entry: [frequency (Hz), duration (seconds), delay-from-start (seconds)]
+const THEME_NOTES = [
+  // Bar 1 — ascending fanfare
+  [392, 0.18, 0.00],  // G4
+  [440, 0.18, 0.20],  // A4
+  [494, 0.18, 0.40],  // B4
+  [523, 0.30, 0.60],  // C5
+  // Bar 2 — bouncy motif
+  [587, 0.15, 1.00],  // D5
+  [523, 0.15, 1.18],  // C5
+  [587, 0.15, 1.36],  // D5
+  [659, 0.30, 1.54],  // E5
+  // Bar 3 — descending answer
+  [587, 0.18, 2.00],  // D5
+  [523, 0.18, 2.20],  // C5
+  [494, 0.18, 2.40],  // B4
+  [440, 0.30, 2.60],  // A4
+  // Bar 4 — resolve up
+  [494, 0.15, 3.10],  // B4
+  [523, 0.15, 3.28],  // C5
+  [587, 0.15, 3.46],  // D5
+  [659, 0.35, 3.64],  // E5
+  // Bar 5 — high repeat
+  [784, 0.15, 4.20],  // G5
+  [659, 0.15, 4.38],  // E5
+  [784, 0.15, 4.56],  // G5
+  [880, 0.30, 4.74],  // A5
+  // Bar 6 — descend to rest
+  [784, 0.18, 5.20],  // G5
+  [659, 0.18, 5.40],  // E5
+  [587, 0.18, 5.60],  // D5
+  [523, 0.40, 5.80],  // C5
+];
+const THEME_LOOP_DURATION = 7.0; // seconds before the melody repeats
+
+function playTheme() {
+  if (themePlaying) return;
+  themePlaying = true;
+  scheduleThemeLoop();
+}
+
+function scheduleThemeLoop() {
+  if (!themePlaying) return;
+  THEME_NOTES.forEach(([freq, dur, delay]) => {
+    const t = setTimeout(() => {
+      if (themePlaying) playTone(freq, dur, 'sine', 0.07);
+    }, delay * 1000);
+    // We don't track individual note timeouts; stopTheme clears the loop
+  });
+  themeTimeout = setTimeout(() => scheduleThemeLoop(), THEME_LOOP_DURATION * 1000);
+}
+
+function stopTheme() {
+  themePlaying = false;
+  if (themeTimeout) { clearTimeout(themeTimeout); themeTimeout = null; }
+}
 
 /* ═══════════════════════════════════════════════════════
    CONFETTI
@@ -526,9 +592,11 @@ startBtn.addEventListener('click', startGame);
 $('play-again-btn').addEventListener('click', () => {
   endScreen.style.display = 'none';
   setupScreen.style.display = 'flex';
+  // Theme keeps playing from end screen into setup screen
 });
 
 function startGame() {
+  stopTheme();
   const numHumans = parseInt(numHumansSelect.value);
   totalRounds = parseInt(numRoundsSelect.value);
   numBankrupts = parseInt($('num-bankrupts').value);
@@ -686,6 +754,7 @@ function nextPlayer() {
 function endGame() {
   gameScreen.style.display = 'none';
   endScreen.style.display = 'flex';
+  playTheme();
 
   let maxMoney = -1;
   let winnerName = '';
