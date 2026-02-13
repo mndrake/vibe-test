@@ -242,16 +242,24 @@ function getAudioCtx() {
   return audioCtx;
 }
 
-// iOS Safari keeps AudioContext suspended until a user gesture triggers
-// both a resume() AND routes audio through the output. Playing a silent
-// buffer during a touch/click is the only reliable unlock pattern.
+// iOS Safari respects the hardware mute switch for web audio. Playing a
+// silent MP3 via an <audio> element switches the iOS audio session from
+// "ambient" (muted by switch) to "playback" (ignores switch). We also
+// resume the AudioContext and push a silent buffer through it.
+// Tiny valid silent MP3 (~110 bytes, base64-encoded):
+const SILENT_MP3 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAABhkVHmKYAAAAAAAAAAAAAAAAA//tQxAAAAAANIAAAAAExBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//tQxBcAAADSAAAAAFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV';
+
 function unlockAudio() {
   if (audioUnlocked) return;
   try {
+    // 1) Play silent MP3 via <audio> to switch iOS audio session to "playback"
+    const a = new Audio(SILENT_MP3);
+    a.setAttribute('playsinline', '');
+    a.play().catch(() => {});
+
+    // 2) Resume AudioContext and play a silent buffer through it
     const ctx = getAudioCtx();
     if (ctx.state === 'suspended') ctx.resume();
-
-    // Play a tiny silent buffer to force iOS to unlock the audio output
     const buf = ctx.createBuffer(1, 1, ctx.sampleRate);
     const src = ctx.createBufferSource();
     src.buffer = buf;
@@ -269,6 +277,7 @@ document.addEventListener('touchend', unlockAudio, true);
 document.addEventListener('click', unlockAudio, true);
 
 function playTone(freq, duration, type = 'sine', volume = 0.15) {
+  if (!audioUnlocked) return; // don't attempt before user gesture
   try {
     const ctx = getAudioCtx();
     if (ctx.state === 'suspended') ctx.resume();
