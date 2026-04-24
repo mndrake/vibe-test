@@ -555,125 +555,98 @@ for (let row = 0; row < ROWS; row++) {
 let ball = null;
 let pegFlash = {}; // pegIdx -> timer
 
-function spawnBall(outcome) {
-  // Pre-determine outcome, then steer ball toward matching slot
-  const targetSlots = slots
-    .map((s, i) => ({ i, s }))
-    .filter(({ s }) => s.outcome.id === outcome.id);
-
-  let targetSlot;
-  if (targetSlots.length > 0) {
-    targetSlot = targetSlots[Math.floor(Math.random() * targetSlots.length)];
-  } else {
-    // fallback: reassign a random slot to this outcome
-    const idx = Math.floor(Math.random() * SLOT_COUNT);
-    slots[idx].outcome = outcome;
-    targetSlot = { i: idx, s: slots[idx] };
-  }
-
+function spawnBall() {
   ball = {
-    x: CANVAS_W / 2 + (Math.random() - 0.5) * 30,
-    y: 10,
-    vx: (Math.random() - 0.5) * 1.5,
+    x: launchX,
+    y: GHOST_Y,
+    vx: (Math.random() - 0.5) * 0.8,
     vy: 2,
     trail: [],
-    targetX: targetSlot.s.x,
-    outcome,
+    inGate: false,
     landed: false,
-    landSlot: targetSlot.i,
+    landSlot: -1,
+    gateTargetX: 0,
   };
 }
 
 function updateBall() {
   if (!ball || ball.landed) return;
 
+  // Inside a gate: ease to slot centre and fall to floor
+  if (ball.inGate) {
+    ball.x += (ball.gateTargetX - ball.x) * 0.18;
+    ball.vy = Math.min(ball.vy + GRAVITY * 0.55, 9);
+    ball.y += ball.vy;
+    if (ball.y >= GATE_BOT - BALL_RADIUS) {
+      ball.y = GATE_BOT - BALL_RADIUS;
+      ball.vy = 0;
+      ball.landed = true;
+      onBallLanded();
+    }
+    return;
+  }
+
   ball.trail.push({ x: ball.x, y: ball.y });
   if (ball.trail.length > 18) ball.trail.shift();
 
   ball.vy += GRAVITY;
   ball.vx *= FRICTION;
-  ball.x += ball.vx;
-  ball.y += ball.vy;
-
-  // Gentle steering toward target slot (subtle)
-  const dx = ball.targetX - ball.x;
-  const progress = ball.y / CANVAS_H;
-  ball.vx += dx * 0.0008 * progress;
+  ball.x  += ball.vx;
+  ball.y  += ball.vy;
 
   // Wall bounce
   if (ball.x < PAD_SIDE + BALL_RADIUS) {
-    ball.x = PAD_SIDE + BALL_RADIUS;
-    ball.vx = Math.abs(ball.vx) * BOUNCE;
+    ball.x  = PAD_SIDE + BALL_RADIUS;
+    ball.vx = Math.abs(ball.vx) * BOUNCE + 0.3;
   }
   if (ball.x > CANVAS_W - PAD_SIDE - BALL_RADIUS) {
-    ball.x = CANVAS_W - PAD_SIDE - BALL_RADIUS;
-    ball.vx = -Math.abs(ball.vx) * BOUNCE;
+    ball.x  = CANVAS_W - PAD_SIDE - BALL_RADIUS;
+    ball.vx = -(Math.abs(ball.vx) * BOUNCE + 0.3);
   }
 
   // Peg collision
   for (let i = 0; i < pegs.length; i++) {
     const peg = pegs[i];
-    const ddx = ball.x - peg.x;
-    const ddy = ball.y - peg.y;
-    const dist = Math.sqrt(ddx * ddx + ddy * ddy);
-    const minDist = BALL_RADIUS + PEG_RADIUS;
-    if (dist < minDist && dist > 0) {
-      const nx = ddx / dist;
-      const ny = ddy / dist;
-      const sep = minDist - dist;
-      ball.x += nx * sep;
-      ball.y += ny * sep;
+    const dx = ball.x - peg.x, dy = ball.y - peg.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const minD = BALL_RADIUS + PEG_RADIUS;
+    if (dist < minD && dist > 0) {
+      const nx = dx / dist, ny = dy / dist;
+      ball.x += nx * (minD - dist);
+      ball.y += ny * (minD - dist);
       const dot = ball.vx * nx + ball.vy * ny;
-      ball.vx = (ball.vx - 2 * dot * nx) * BOUNCE + (Math.random() - 0.5) * 0.6;
+      ball.vx = (ball.vx - 2 * dot * nx) * BOUNCE + (Math.random() - 0.5) * 1.0;
       ball.vy = (ball.vy - 2 * dot * ny) * BOUNCE;
-      if (ball.vy < 1) ball.vy = 1;
-      pegFlash[i] = 8;
+      if (ball.vy < 0.8) ball.vy = 0.8;
+      pegFlash[i] = 10;
       playPegSound();
       break;
     }
   }
 
-  // Land check
-  if (ball.y >= SLOT_Y - BALL_RADIUS) {
-    ball.y = SLOT_Y - BALL_RADIUS;
-    ball.vy = 0;
-    ball.vx = 0;
-    ball.landed = true;
-    onBallLanded();
+  // Enter gate when ball reaches gate top
+  if (ball.y + BALL_RADIUS >= GATE_TOP) {
+    const raw = (ball.x - PAD_SIDE) / slotW;
+    ball.landSlot    = Math.max(0, Math.min(SLOT_COUNT - 1, Math.floor(raw)));
+    ball.inGate      = true;
+    ball.vx          = 0;
+    ball.trail       = [];
+    ball.gateTargetX = PAD_SIDE + (ball.landSlot + 0.5) * slotW;
   }
-}
-
-/* ════════════════════════════════════════════════
-   OUTCOME DETERMINATION
-   ════════════════════════════════════════════════ */
-function weightedOutcome() {
-  let r = Math.random();
-  for (const o of OUTCOMES) {
-    r -= o.prob;
-    if (r <= 0) return o;
-  }
-  return OUTCOMES[0];
 }
 
 /* ════════════════════════════════════════════════
    RESULT HANDLING
    ════════════════════════════════════════════════ */
-let podShakeTimer = 0;
-let podOpenTimer  = 0;
 
 function onBallLanded() {
-  const outcome = ball.outcome;
-  lastResult = outcome;
-  podShakeTimer = 40;
+  const outcome = OUTCOME_MAP[SLOT_LAYOUT[ball.landSlot]];
 
   // Highlight prize row
   document.querySelectorAll('.prize-row').forEach(el => el.classList.remove('highlight'));
   document.getElementById('pr-' + outcome.id).classList.add('highlight');
 
-  setTimeout(() => {
-    podOpenTimer = 60;
-    applyResult(outcome);
-  }, 700);
+  setTimeout(() => applyResult(outcome), 650);
 }
 
 function applyResult(outcome) {
@@ -1106,10 +1079,7 @@ function launch() {
   clampBet();
   if (betAmt < 5 || betAmt > balance) return;
 
-  // Unlock audio on first interaction
-  if (!audioCtx) {
-    playAmbient();
-  }
+  if (!audioCtx) playAmbient();
 
   dropping = true;
   btnLaunch.disabled = true;
@@ -1120,11 +1090,7 @@ function launch() {
 
   document.querySelectorAll('.prize-row').forEach(el => el.classList.remove('highlight'));
 
-  // Reassign slot outcomes fresh for variety
-  slots.forEach((slot, i) => { slot.outcome = pickSlotOutcome(i); });
-
-  const outcome = weightedOutcome();
-  spawnBall(outcome);
+  spawnBall();
 }
 
 /* ════════════════════════════════════════════════
@@ -1138,10 +1104,9 @@ function showGameOver() {
 btnTryagain.addEventListener('click', () => {
   balance = 50;
   betAmt  = 5;
-  ball    = null;
+  ball     = null;
   dropping = false;
   particles = [];
-  lastResult = null;
   document.querySelectorAll('.prize-row').forEach(el => el.classList.remove('highlight'));
   gameover.classList.remove('visible');
   resultBanner.textContent = '— Awaiting Launch —';
