@@ -699,104 +699,171 @@ function showResult(outcome, winnings) {
 function drawBoard() {
   gctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // Background grid lines
-  gctx.strokeStyle = 'rgba(0,170,255,0.04)';
+  // Subtle vertical grid
+  gctx.strokeStyle = 'rgba(0,100,200,0.04)';
   gctx.lineWidth = 1;
   for (let x = 0; x < CANVAS_W; x += 30) {
     gctx.beginPath(); gctx.moveTo(x, 0); gctx.lineTo(x, CANVAS_H); gctx.stroke();
   }
 
-  // Pegs
-  pegs.forEach((peg, i) => {
-    const flash = pegFlash[i] || 0;
-    const glowColor = flash > 0 ? '#00ffff' : '#4488ff';
-    const glowAmt   = flash > 0 ? 14 : 5;
+  drawGates();
+  drawPegs();
+  if (!dropping) drawGhost();
+  if (ball) drawBall();
+}
 
+function drawGates() {
+  const activeSlot = ball ? ball.landSlot : -1;
+  const aimSlot    = dropping ? -1
+    : Math.max(0, Math.min(SLOT_COUNT - 1, Math.floor((launchX - PAD_SIDE) / slotW)));
+
+  // Gate interiors
+  for (let i = 0; i < SLOT_COUNT; i++) {
+    const outcome  = OUTCOME_MAP[SLOT_LAYOUT[i]];
+    const gx       = PAD_SIDE + i * slotW + WALL_W / 2;
+    const gw       = slotW - WALL_W;
+    const isActive = i === activeSlot && ball && (ball.inGate || ball.landed);
+    const isAim    = i === aimSlot;
+
+    // Interior fill
+    const grad = gctx.createLinearGradient(0, GATE_TOP, 0, GATE_BOT);
+    if (isActive) {
+      grad.addColorStop(0, outcome.color + '55');
+      grad.addColorStop(1, outcome.color + 'bb');
+    } else if (isAim) {
+      grad.addColorStop(0, outcome.color + '1a');
+      grad.addColorStop(1, outcome.color + '44');
+    } else {
+      grad.addColorStop(0, 'rgba(4,10,28,0.96)');
+      grad.addColorStop(1, 'rgba(8,18,48,0.96)');
+    }
+    gctx.fillStyle = grad;
+    gctx.fillRect(gx, GATE_TOP, gw, GATE_H);
+
+    // Prize strip at bottom
+    const stripH = 34;
+    if (isActive) { gctx.shadowColor = outcome.color; gctx.shadowBlur = 16; }
+    gctx.fillStyle = isActive ? outcome.color + 'ee'
+                   : isAim    ? outcome.color + '99'
+                              : outcome.color + '55';
+    gctx.fillRect(gx, GATE_BOT - stripH, gw, stripH);
+    gctx.shadowBlur = 0;
+
+    // Multiplier label
+    gctx.font = `bold 10px Orbitron`;
+    gctx.textAlign = 'center';
+    gctx.textBaseline = 'middle';
+    if (isActive) { gctx.shadowColor = outcome.color; gctx.shadowBlur = 8; }
+    gctx.fillStyle = '#ffffff';
+    gctx.fillText(outcome.mult + 'x', gx + gw / 2, GATE_BOT - stripH / 2);
+    gctx.shadowBlur = 0;
+
+    // Colour dot at gate entrance
+    gctx.beginPath();
+    gctx.arc(gx + gw / 2, GATE_TOP + 11, isActive ? 5 : 3.5, 0, Math.PI * 2);
+    gctx.fillStyle = isActive ? outcome.color : outcome.color + (isAim ? 'cc' : '88');
+    if (isActive) { gctx.shadowColor = outcome.color; gctx.shadowBlur = 10; }
+    gctx.fill();
+    gctx.shadowBlur = 0;
+  }
+
+  // Walls between gates (drawn on top of interiors)
+  for (let i = 0; i <= SLOT_COUNT; i++) {
+    const wx = PAD_SIDE + i * slotW;
+    // Wall body
+    gctx.fillStyle = '#1a2a50';
+    gctx.fillRect(wx - WALL_W / 2, GATE_TOP - 6, WALL_W, GATE_H + 8);
+    // Inner highlight stripe
+    gctx.fillStyle = '#3a5888';
+    gctx.fillRect(wx - 1, GATE_TOP - 6, 2, GATE_H + 8);
+    // Funnel-tip triangle at wall top
+    gctx.beginPath();
+    gctx.moveTo(wx - WALL_W / 2 - 3, GATE_TOP - 6);
+    gctx.lineTo(wx + WALL_W / 2 + 3, GATE_TOP - 6);
+    gctx.lineTo(wx, GATE_TOP - 16);
+    gctx.closePath();
+    gctx.fillStyle = '#4a68a8';
+    gctx.fill();
+  }
+
+  // Entrance line across top of all gates
+  gctx.strokeStyle = '#2a4070';
+  gctx.lineWidth = 2;
+  gctx.beginPath();
+  gctx.moveTo(PAD_SIDE, GATE_TOP - 6);
+  gctx.lineTo(CANVAS_W - PAD_SIDE, GATE_TOP - 6);
+  gctx.stroke();
+}
+
+function drawPegs() {
+  pegs.forEach((peg, i) => {
+    const fl    = pegFlash[i] || 0;
+    const color = fl > 0 ? '#00ffff' : '#4488ff';
+    const blur  = fl > 0 ? 16 : 5;
+    const grad  = gctx.createRadialGradient(peg.x - 1, peg.y - 1, 0, peg.x, peg.y, PEG_RADIUS);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.5, color);
+    grad.addColorStop(1, fl > 0 ? '#00cccc88' : '#112288aa');
     gctx.beginPath();
     gctx.arc(peg.x, peg.y, PEG_RADIUS, 0, Math.PI * 2);
-
-    const grad = gctx.createRadialGradient(peg.x - 1, peg.y - 1, 0, peg.x, peg.y, PEG_RADIUS);
-    grad.addColorStop(0, '#ffffff');
-    grad.addColorStop(0.4, glowColor);
-    grad.addColorStop(1, flash > 0 ? '#00ffffaa' : '#1144aaaa');
     gctx.fillStyle = grad;
-
-    gctx.shadowColor = glowColor;
-    gctx.shadowBlur  = glowAmt;
+    gctx.shadowColor = color;
+    gctx.shadowBlur  = blur;
     gctx.fill();
     gctx.shadowBlur = 0;
-
-    if (flash > 0) pegFlash[i]--;
+    if (fl > 0) pegFlash[i]--;
   });
+}
 
-  // Slots
-  const slotOutcomeColors = {
-    bust:     '#ff2244',
-    signal:   '#88aaff',
-    artifact: '#00aaff',
-    warp:     '#9b30ff',
-    jackpot:  '#ffd700',
-  };
+function drawGhost() {
+  const aimSlot   = Math.max(0, Math.min(SLOT_COUNT - 1, Math.floor((launchX - PAD_SIDE) / slotW)));
+  const aimColor  = OUTCOME_MAP[SLOT_LAYOUT[aimSlot]].color;
+  const aimLabel  = OUTCOME_MAP[SLOT_LAYOUT[aimSlot]].mult + 'x — ' + OUTCOME_MAP[SLOT_LAYOUT[aimSlot]].label;
 
-  slots.forEach((slot, i) => {
-    const col = slotOutcomeColors[slot.outcome.id];
-    const isLandSlot = ball && ball.landed && ball.landSlot === i;
-    const shaking    = isLandSlot && podShakeTimer > 0;
-    const opening    = isLandSlot && podOpenTimer > 0;
+  // Dashed guide line to gate
+  gctx.save();
+  gctx.setLineDash([4, 6]);
+  gctx.strokeStyle = 'rgba(0,200,255,0.2)';
+  gctx.lineWidth = 1.5;
+  gctx.beginPath();
+  gctx.moveTo(launchX, GHOST_Y + BALL_RADIUS + 3);
+  gctx.lineTo(launchX, GATE_TOP - 16);
+  gctx.stroke();
+  gctx.restore();
 
-    let sx = slot.x;
-    let sy = SLOT_Y;
-    if (shaking) {
-      sx += (Math.random() - 0.5) * 5;
-      sy += (Math.random() - 0.5) * 3;
-    }
+  // Ghost ball
+  gctx.beginPath();
+  gctx.arc(launchX, GHOST_Y, BALL_RADIUS, 0, Math.PI * 2);
+  gctx.fillStyle = 'rgba(0,200,255,0.18)';
+  gctx.fill();
+  gctx.strokeStyle = 'rgba(0,220,255,0.75)';
+  gctx.lineWidth = 2;
+  gctx.stroke();
 
-    // Pod body
-    gctx.save();
-    gctx.translate(sx, sy);
+  // Pulsing ring
+  const pulse = (Date.now() % 1400) / 1400;
+  gctx.beginPath();
+  gctx.arc(launchX, GHOST_Y, BALL_RADIUS + 3 + pulse * 8, 0, Math.PI * 2);
+  gctx.strokeStyle = `rgba(0,200,255,${0.4 * (1 - pulse)})`;
+  gctx.lineWidth = 1.5;
+  gctx.stroke();
 
-    gctx.shadowColor = col;
-    gctx.shadowBlur  = opening ? 20 : 8;
+  // Aimed prize label
+  gctx.font = '7.5px Orbitron';
+  gctx.textAlign = 'center';
+  gctx.textBaseline = 'bottom';
+  gctx.fillStyle = aimColor;
+  gctx.shadowColor = aimColor;
+  gctx.shadowBlur  = 6;
+  gctx.fillText(aimLabel, launchX, GHOST_Y - BALL_RADIUS - 4);
+  gctx.shadowBlur = 0;
 
-    // Bottom pod half
-    gctx.beginPath();
-    gctx.ellipse(0, 0, slotW * 0.42, 22, 0, 0, Math.PI);
-    gctx.fillStyle = opening
-      ? col + 'cc'
-      : `rgba(10,20,50,0.9)`;
-    gctx.strokeStyle = col;
-    gctx.lineWidth = 2;
-    gctx.fill();
-    gctx.stroke();
-
-    // Top pod half (opens upward when opening)
-    const openAngle = opening ? Math.min(podOpenTimer / 60, 1) * -0.9 : 0;
-    gctx.save();
-    gctx.rotate(openAngle);
-    gctx.beginPath();
-    gctx.ellipse(0, 0, slotW * 0.42, 22, 0, Math.PI, Math.PI * 2);
-    gctx.fillStyle = `rgba(10,20,60,0.95)`;
-    gctx.strokeStyle = col;
-    gctx.lineWidth = 2;
-    gctx.fill();
-    gctx.stroke();
-    gctx.restore();
-
-    // Glow dot
-    gctx.beginPath();
-    gctx.arc(0, -4, 4, 0, Math.PI * 2);
-    gctx.fillStyle = col;
-    gctx.fill();
-
-    gctx.shadowBlur = 0;
-    gctx.restore();
-  });
-
-  if (podShakeTimer > 0) podShakeTimer--;
-  if (podOpenTimer > 0)  podOpenTimer--;
-
-  // Ball
-  if (ball) drawBall();
+  // Static hint at top of canvas
+  gctx.font = '6px Orbitron';
+  gctx.fillStyle = 'rgba(0,180,255,0.4)';
+  gctx.textBaseline = 'top';
+  gctx.shadowBlur = 0;
+  gctx.fillText('← MOVE TO AIM  |  CLICK OR SPACE TO DROP →', CANVAS_W / 2, 2);
 }
 
 function drawBall() {
