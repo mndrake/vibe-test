@@ -432,31 +432,39 @@ body {
 /* ════════════════════════════════════════════════
    CONSTANTS
    ════════════════════════════════════════════════ */
-const OUTCOMES = [
-  { id: 'bust',     label: 'HULL BREACH',    mult: 0,    prob: 0.40, color: '#ff2244' },
-  { id: 'signal',   label: 'SIGNAL DETECTED',mult: 1.5,  prob: 0.30, color: '#88aaff' },
-  { id: 'artifact', label: 'ALIEN ARTIFACT', mult: 2,    prob: 0.20, color: '#00aaff' },
-  { id: 'warp',     label: 'WARP CORE!',     mult: 5,    prob: 0.08, color: '#9b30ff' },
-  { id: 'jackpot',  label: 'FIRST CONTACT!', mult: 10,   prob: 0.02, color: '#ffd700' },
+const OUTCOME_MAP = {
+  bust:     { id: 'bust',     label: 'HULL BREACH',     mult: 0,   color: '#ff2244' },
+  signal:   { id: 'signal',   label: 'SIGNAL DETECTED', mult: 1.5, color: '#88aaff' },
+  artifact: { id: 'artifact', label: 'ALIEN ARTIFACT',  mult: 2,   color: '#00ccff' },
+  warp:     { id: 'warp',     label: 'WARP CORE!',      mult: 5,   color: '#9b30ff' },
+  jackpot:  { id: 'jackpot',  label: 'FIRST CONTACT!',  mult: 10,  color: '#ffd700' },
+};
+
+// Fixed slot prizes — 13 slots, symmetric, jackpot at centre
+const SLOT_LAYOUT = [
+  'bust','bust','signal','signal','artifact',
+  'warp','jackpot','warp','artifact',
+  'signal','signal','bust','bust'
 ];
 
 const ROWS = 12;
 const PEG_RADIUS = 5;
-const BALL_RADIUS = 9;
+const BALL_RADIUS = 8;
 const CANVAS_W = 520;
-const CANVAS_H = 560;
+const CANVAS_H = 625;
 const GRAVITY = 0.38;
-const BOUNCE = 0.42;
+const BOUNCE = 0.38;
 const FRICTION = 0.985;
 const SLOT_COUNT = ROWS + 1; // 13 slots
+const WALL_W = 5;
 
 /* ════════════════════════════════════════════════
    STATE
    ════════════════════════════════════════════════ */
-let balance = 50;
-let betAmt  = 5;
+let balance  = 50;
+let betAmt   = 5;
 let dropping = false;
-let lastResult = null;
+let launchX  = CANVAS_W / 2;
 
 /* ════════════════════════════════════════════════
    DOM
@@ -518,54 +526,28 @@ function drawStarfield() {
 /* ════════════════════════════════════════════════
    PEG GRID LAYOUT
    ════════════════════════════════════════════════ */
-const PAD_TOP  = 60;
-const PAD_SIDE = 40;
-const PAD_BOT  = 110;
-const usableW  = CANVAS_W - PAD_SIDE * 2;
-const usableH  = CANVAS_H - PAD_TOP - PAD_BOT;
+const PAD_TOP      = 52;
+const PAD_SIDE     = 32;
+const GHOST_Y      = 20;
+const usableW      = CANVAS_W - PAD_SIDE * 2;       // 456
+const slotW        = usableW / SLOT_COUNT;            // ~35.1
+const PEG_AREA_H   = 355;
+const PEG_AREA_BOT = PAD_TOP + PEG_AREA_H;          // 407
+const GATE_TOP     = PEG_AREA_BOT + 22;             // 429
+const GATE_H       = 181;
+const GATE_BOT     = GATE_TOP + GATE_H;             // 610
 
 const pegs = [];
 for (let row = 0; row < ROWS; row++) {
-  const cols = row + 2;
+  const cols    = row + 2;
   const spacing = usableW / (cols - 1);
-  const rowX0   = PAD_SIDE + (usableW - spacing * (cols - 1)) / 2;
-  const rowY    = PAD_TOP + (row / (ROWS - 1)) * usableH;
+  const rowY    = PAD_TOP + (row / (ROWS - 1)) * PEG_AREA_H;
   for (let col = 0; col < cols; col++) {
-    pegs.push({ x: rowX0 + col * spacing, y: rowY });
+    pegs.push({ x: PAD_SIDE + col * spacing, y: rowY });
   }
 }
 
-/* ════════════════════════════════════════════════
-   SLOT POSITIONS (bottom)
-   ════════════════════════════════════════════════ */
-const SLOT_Y = CANVAS_H - PAD_BOT + 10;
-const slotW  = usableW / SLOT_COUNT;
-const slots  = Array.from({ length: SLOT_COUNT }, (_, i) => ({
-  x: PAD_SIDE + i * slotW + slotW / 2,
-  outcome: pickSlotOutcome(i),
-}));
-
-function pickSlotOutcome(slotIdx) {
-  // Map slot index to an outcome pool. Center = higher risk/reward, edges = bust.
-  // Use weighted random for each slot seeded loosely by position
-  const mid = (SLOT_COUNT - 1) / 2;
-  const dist = Math.abs(slotIdx - mid) / mid; // 0=center, 1=edge
-  // Weight jackpot near center, bust near edges
-  const weights = OUTCOMES.map((o, i) => {
-    if (o.id === 'jackpot')  return o.prob * (1 - dist * 0.9);
-    if (o.id === 'warp')     return o.prob * (1 - dist * 0.6);
-    if (o.id === 'bust')     return o.prob * (0.5 + dist * 0.5);
-    return o.prob;
-  });
-  // Normalise
-  const total = weights.reduce((a, b) => a + b, 0);
-  let r = Math.random() * total;
-  for (let i = 0; i < OUTCOMES.length; i++) {
-    r -= weights[i];
-    if (r <= 0) return OUTCOMES[i];
-  }
-  return OUTCOMES[0];
-}
+/* slot centres are at PAD_SIDE + (i + 0.5) * slotW — no separate array needed */
 
 /* ════════════════════════════════════════════════
    BALL PHYSICS
