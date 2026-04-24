@@ -120,6 +120,7 @@ body {
   display: block;
   width: 100%;
   height: auto;
+  cursor: crosshair;
 }
 
 /* ── Side Panel ── */
@@ -1133,10 +1134,44 @@ btnAllin.addEventListener('click', () => {
 
 btnLaunch.addEventListener('click', () => launch());
 
+/* ── Canvas aim controls ── */
+function clampLaunchX(x) {
+  return Math.max(PAD_SIDE + BALL_RADIUS, Math.min(CANVAS_W - PAD_SIDE - BALL_RADIUS, x));
+}
+function canvasToGameX(clientX) {
+  const rect   = gameCanvas.getBoundingClientRect();
+  const scaleX = CANVAS_W / rect.width;
+  return clampLaunchX((clientX - rect.left) * scaleX);
+}
+
+gameCanvas.addEventListener('mousemove', e => {
+  if (!dropping) launchX = canvasToGameX(e.clientX);
+});
+gameCanvas.addEventListener('click', e => {
+  if (dropping) return;
+  launchX = canvasToGameX(e.clientX);
+  launch();
+});
+gameCanvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!dropping) launchX = canvasToGameX(e.touches[0].clientX);
+}, { passive: false });
+gameCanvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (!dropping) launch();
+}, { passive: false });
+
 document.addEventListener('keydown', e => {
-  if (e.code === 'Space' && !dropping) {
+  if (e.code === 'Space' || e.code === 'Enter') {
+    if (!dropping) { e.preventDefault(); launch(); }
+  }
+  if (e.code === 'ArrowLeft'  && !dropping) {
     e.preventDefault();
-    launch();
+    launchX = clampLaunchX(launchX - slotW * 0.5);
+  }
+  if (e.code === 'ArrowRight' && !dropping) {
+    e.preventDefault();
+    launchX = clampLaunchX(launchX + slotW * 0.5);
   }
 });
 
