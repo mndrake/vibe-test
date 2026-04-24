@@ -425,7 +425,7 @@ body {
 <div id="gameover">
   <h2>HULL BREACH</h2>
   <p>All credits lost. Transmission ended.</p>
-  <p id="go-final" style="color:var(--gold);font-size:0.9rem;">Final Balance: $0.00</p>
+  <p id="go-final" style="color:var(--gold);font-size:0.9rem;">Peak Balance: $0.00</p>
   <button id="btn-tryagain">TRY AGAIN</button>
 </div>
 
@@ -462,10 +462,11 @@ const WALL_W = 5;
 /* ════════════════════════════════════════════════
    STATE
    ════════════════════════════════════════════════ */
-let balance  = 50;
-let betAmt   = 5;
-let dropping = false;
-let launchX  = CANVAS_W / 2;
+let balance     = 50;
+let highBalance = 50;
+let betAmt      = 5;
+let dropping    = false;
+let launchX     = CANVAS_W / 2;
 
 /* ════════════════════════════════════════════════
    DOM
@@ -655,6 +656,7 @@ function applyResult(outcome) {
   balance = Math.round((balance - betAmt + winnings) * 100) / 100;
   if (balance < 0) balance = 0;
 
+  if (balance > highBalance) highBalance = balance;
   updateBalanceDisplay();
   showResult(outcome, winnings);
 
@@ -1199,13 +1201,14 @@ function launch() {
    GAME OVER
    ════════════════════════════════════════════════ */
 function showGameOver() {
-  document.getElementById('go-final').textContent = 'Final Balance: $' + balance.toFixed(2);
+  document.getElementById('go-final').textContent = 'Peak Balance: $' + highBalance.toFixed(2);
   gameover.classList.add('visible');
 }
 
 btnTryagain.addEventListener('click', () => {
-  balance = 50;
-  betAmt  = 5;
+  balance     = 50;
+  highBalance = 50;
+  betAmt      = 5;
   ball     = null;
   dropping = false;
   particles = [];
